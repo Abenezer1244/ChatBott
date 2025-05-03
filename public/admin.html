@@ -41,6 +41,16 @@
       border: 1px solid #ced4da;
       margin-top: 10px;
     }
+    .spinner-border {
+      width: 1rem;
+      height: 1rem;
+      margin-right: 0.5rem;
+    }
+    .loading {
+      display: none;
+      justify-content: center;
+      margin: 20px 0;
+    }
   </style>
 </head>
 <body>
@@ -60,7 +70,10 @@
             <label for="admin-key" class="form-label">Admin Key</label>
             <input type="password" class="form-control" id="admin-key" required>
           </div>
-          <button type="submit" class="btn btn-primary">Authenticate</button>
+          <button type="submit" class="btn btn-primary">
+            <span class="spinner-border spinner-border-sm d-none" id="auth-spinner"></span>
+            Authenticate
+          </button>
         </form>
       </div>
     </div>
@@ -91,7 +104,10 @@
                   <label for="widget-id" class="form-label">TestMyPrompt Widget ID</label>
                   <input type="text" class="form-control" id="widget-id" required>
                 </div>
-                <button type="submit" class="btn btn-success">Create Client</button>
+                <button type="submit" class="btn btn-success">
+                  <span class="spinner-border spinner-border-sm d-none" id="create-spinner"></span>
+                  Create Client
+                </button>
               </form>
             </div>
           </div>
@@ -109,14 +125,21 @@
                     <option value="" selected disabled>Select a client</option>
                   </select>
                 </div>
-                <button type="submit" class="btn btn-primary">Generate Token</button>
+                <button type="submit" class="btn btn-primary">
+                  <span class="spinner-border spinner-border-sm d-none" id="token-spinner"></span>
+                  Generate Token
+                </button>
               </form>
               <div id="token-result" class="mt-3" style="display: none;">
                 <h5>Generated Token:</h5>
                 <div class="token-display" id="token-display"></div>
                 <div class="mt-2">
-                  <button class="btn btn-sm btn-outline-secondary" id="copy-token">Copy Token</button>
-                  <button class="btn btn-sm btn-outline-primary" id="copy-embed-code">Copy Embed Code</button>
+                  <button class="btn btn-sm btn-outline-secondary" id="copy-token">
+                    <i class="bi bi-clipboard"></i> Copy Token
+                  </button>
+                  <button class="btn btn-sm btn-outline-primary" id="copy-embed-code">
+                    <i class="bi bi-code-slash"></i> Copy Embed Code
+                  </button>
                 </div>
               </div>
             </div>
@@ -128,9 +151,18 @@
       <div class="card mt-4">
         <div class="card-header d-flex justify-content-between align-items-center">
           <span>Client List</span>
-          <button id="refresh-clients" class="btn btn-sm btn-outline-light">Refresh</button>
+          <button id="refresh-clients" class="btn btn-sm btn-outline-light">
+            <span class="spinner-border spinner-border-sm d-none" id="refresh-spinner"></span>
+            Refresh
+          </button>
         </div>
         <div class="card-body">
+          <div id="clients-loading" class="loading">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="ms-2">Loading clients...</span>
+          </div>
           <div class="table-responsive">
             <table class="table table-hover">
               <thead>
@@ -192,7 +224,10 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-primary" id="save-client-changes">Save changes</button>
+            <button type="button" class="btn btn-primary" id="save-client-changes">
+              <span class="spinner-border spinner-border-sm d-none" id="save-spinner"></span>
+              Save changes
+            </button>
           </div>
         </div>
       </div>
@@ -221,14 +256,34 @@
     let clients = [];
     let currentClientId = '';
     let currentToken = '';
-    const toastEl = document.getElementById('toast-notification');
-    const toast = new bootstrap.Toast(toastEl);
-    
-    // Initialize modal
     let editClientModal;
+    const toastEl = document.getElementById('toast-notification');
+    let toast;
+
+    // Initialize components after DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
+      toast = new bootstrap.Toast(toastEl);
       editClientModal = new bootstrap.Modal(document.getElementById('editClientModal'));
+      
+      // Check if admin key is stored in localStorage
+      const storedAdminKey = localStorage.getItem('adminKey');
+      if (storedAdminKey) {
+        adminKey = storedAdminKey;
+        document.getElementById('auth-card').style.display = 'none';
+        document.getElementById('dashboard-container').style.display = 'block';
+        fetchClients();
+      }
     });
+
+    // Show/hide loading spinners
+    function toggleSpinner(elementId, show) {
+      const spinner = document.getElementById(elementId);
+      if (show) {
+        spinner.classList.remove('d-none');
+      } else {
+        spinner.classList.add('d-none');
+      }
+    }
 
     // Show notification
     function showNotification(title, message, type = 'success') {
@@ -249,70 +304,84 @@
     }
 
     // Authentication
-    document.getElementById('auth-form').addEventListener('submit', function(e) {
+    document.getElementById('auth-form').addEventListener('submit', async function(e) {
       e.preventDefault();
-      adminKey = document.getElementById('admin-key').value.trim();
-      if (!adminKey) {
+      
+      const inputAdminKey = document.getElementById('admin-key').value.trim();
+      if (!inputAdminKey) {
         showNotification('Error', 'Admin key is required', 'error');
         return;
       }
       
-      // Show dashboard and load clients
-      document.getElementById('auth-card').style.display = 'none';
-      document.getElementById('dashboard-container').style.display = 'block';
-      fetchClients();
+      toggleSpinner('auth-spinner', true);
+      
+      try {
+        // Verify admin key by attempting to fetch clients
+        const response = await fetch(`${API_BASE_URL}/api/clients`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${inputAdminKey}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Authentication failed: ${response.status}`);
+        }
+        
+        // If we get here, the admin key is valid
+        adminKey = inputAdminKey;
+        
+        // Store admin key in localStorage for persistence
+        localStorage.setItem('adminKey', adminKey);
+        
+        // Show dashboard and load clients
+        document.getElementById('auth-card').style.display = 'none';
+        document.getElementById('dashboard-container').style.display = 'block';
+        
+        // Parse response data
+        const data = await response.json();
+        clients = data.clients || [];
+        
+        updateClientsList();
+        updateClientDropdown();
+        
+        showNotification('Success', 'Authentication successful');
+      } catch (error) {
+        console.error('Authentication error:', error);
+        showNotification('Error', 'Authentication failed. Please check your admin key.', 'error');
+      } finally {
+        toggleSpinner('auth-spinner', false);
+      }
     });
 
     // Fetch all clients
     async function fetchClients() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/clients?adminKey=${encodeURIComponent(adminKey)}`, {
+        document.getElementById('clients-loading').style.display = 'flex';
+        toggleSpinner('refresh-spinner', true);
+        
+        const response = await fetch(`${API_BASE_URL}/api/clients`, {
           method: 'GET',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminKey}`
           }
         });
         
-        // Note: This is a mock implementation since we don't have a /api/clients GET endpoint
-        // In a real implementation, you would use the response data from the server
-        
-        // Mock data for demonstration
-        clients = [
-          { 
-            clientId: 'client-12345678', 
-            name: 'Example Corp', 
-            email: 'contact@example.com', 
-            active: true, 
-            allowedDomains: ['example.com'],
-            requestCount: 128,
-            lastRequestDate: new Date().toISOString(),
-            chatbotConfig: {
-              widgetId: '6809b3a1523186af0b2c9933',
-              customization: {
-                primaryColor: '#0084ff',
-                secondaryColor: '#ffffff',
-                headerText: 'Chat with Example Corp'
-              }
-            }
-          },
-          { 
-            clientId: 'client-87654321', 
-            name: 'Test Company', 
-            email: 'info@test-company.com', 
-            active: false, 
-            allowedDomains: [],
-            requestCount: 52,
-            lastRequestDate: new Date(Date.now() - 86400000 * 3).toISOString(),
-            chatbotConfig: {
-              widgetId: '6809b3a1523186af0b2c9933',
-              customization: {
-                primaryColor: '#ff4500',
-                secondaryColor: '#ffffff',
-                headerText: 'Support Chat'
-              }
-            }
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Authentication failed, show login again
+            localStorage.removeItem('adminKey');
+            document.getElementById('auth-card').style.display = 'block';
+            document.getElementById('dashboard-container').style.display = 'none';
+            throw new Error('Authentication expired or invalid');
           }
-        ];
+          throw new Error(`Server responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        clients = data.clients || [];
         
         updateClientsList();
         updateClientDropdown();
@@ -320,7 +389,10 @@
         showNotification('Success', 'Clients loaded successfully');
       } catch (error) {
         console.error('Error fetching clients:', error);
-        showNotification('Error', 'Failed to load clients', 'error');
+        showNotification('Error', 'Failed to load clients: ' + error.message, 'error');
+      } finally {
+        document.getElementById('clients-loading').style.display = 'none';
+        toggleSpinner('refresh-spinner', false);
       }
     }
 
@@ -328,6 +400,13 @@
     function updateClientsList() {
       const clientList = document.getElementById('client-list');
       clientList.innerHTML = '';
+      
+      if (clients.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="7" class="text-center">No clients found. Create your first client to get started.</td>';
+        clientList.appendChild(row);
+        return;
+      }
       
       clients.forEach(client => {
         const row = document.createElement('tr');
@@ -365,7 +444,7 @@
         btn.addEventListener('click', function() {
           const clientId = this.getAttribute('data-client-id');
           const activate = this.classList.contains('activate-client');
-          toggleClientStatus(clientId, activate);
+          toggleClientStatus(clientId, activate, this);
         });
       });
     }
@@ -375,7 +454,18 @@
       const dropdown = document.getElementById('token-client-id');
       dropdown.innerHTML = '<option value="" selected disabled>Select a client</option>';
       
-      clients.filter(client => client.active).forEach(client => {
+      const activeClients = clients.filter(client => client.active);
+      
+      if (activeClients.length === 0) {
+        const option = document.createElement('option');
+        option.value = "";
+        option.textContent = "No active clients";
+        option.disabled = true;
+        dropdown.appendChild(option);
+        return;
+      }
+      
+      activeClients.forEach(client => {
         const option = document.createElement('option');
         option.value = client.clientId;
         option.textContent = `${client.name} (${client.clientId})`;
@@ -397,14 +487,16 @@
         allowedDomains = allowedDomainsStr.split(',').map(domain => domain.trim());
       }
       
+      toggleSpinner('create-spinner', true);
+      
       try {
         const response = await fetch(`${API_BASE_URL}/api/clients`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminKey}`
           },
           body: JSON.stringify({
-            adminKey,
             name,
             email,
             allowedDomains,
@@ -413,40 +505,31 @@
         });
         
         if (!response.ok) {
-          throw new Error(`Server responded with status: ${response.status}`);
+          if (response.status === 401) {
+            localStorage.removeItem('adminKey');
+            document.getElementById('auth-card').style.display = 'block';
+            document.getElementById('dashboard-container').style.display = 'none';
+            throw new Error('Authentication expired or invalid');
+          }
+          
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
         }
         
         const data = await response.json();
         
-        // Add the new client to our list (normally this would come from the server)
-        // In a real implementation, you would re-fetch the clients list
-        clients.push({
-          clientId: data.clientId || `client-${Date.now().toString(36)}`,
-          name,
-          email,
-          active: true,
-          allowedDomains,
-          requestCount: 0,
-          chatbotConfig: {
-            widgetId,
-            customization: {
-              primaryColor: '#0084ff',
-              secondaryColor: '#ffffff',
-              headerText: 'Chat with us'
-            }
-          }
-        });
-        
-        updateClientsList();
-        updateClientDropdown();
-        
         // Reset form
         document.getElementById('create-client-form').reset();
+        
+        // Refresh client list
+        await fetchClients();
         
         showNotification('Success', 'Client created successfully');
       } catch (error) {
         console.error('Error creating client:', error);
-        showNotification('Error', 'Failed to create client', 'error');
+        showNotification('Error', 'Failed to create client: ' + error.message, 'error');
+      } finally {
+        toggleSpinner('create-spinner', false);
       }
     });
 
@@ -460,20 +543,30 @@
         return;
       }
       
+      toggleSpinner('token-spinner', true);
+      
       try {
         const response = await fetch(`${API_BASE_URL}/api/token`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminKey}`
           },
           body: JSON.stringify({
-            adminKey,
             clientId
           })
         });
         
         if (!response.ok) {
-          throw new Error(`Server responded with status: ${response.status}`);
+          if (response.status === 401) {
+            localStorage.removeItem('adminKey');
+            document.getElementById('auth-card').style.display = 'block';
+            document.getElementById('dashboard-container').style.display = 'none';
+            throw new Error('Authentication expired or invalid');
+          }
+          
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
         }
         
         const data = await response.json();
@@ -488,7 +581,9 @@
         showNotification('Success', 'Token generated successfully');
       } catch (error) {
         console.error('Error generating token:', error);
-        showNotification('Error', 'Failed to generate token', 'error');
+        showNotification('Error', 'Failed to generate token: ' + error.message, 'error');
+      } finally {
+        toggleSpinner('token-spinner', false);
       }
     });
 
@@ -500,6 +595,7 @@
         })
         .catch(err => {
           console.error('Failed to copy token:', err);
+          showNotification('Error', 'Failed to copy to clipboard', 'error');
         });
     });
 
@@ -519,6 +615,7 @@
         })
         .catch(err => {
           console.error('Failed to copy embed code:', err);
+          showNotification('Error', 'Failed to copy to clipboard', 'error');
         });
     });
 
@@ -558,14 +655,16 @@
         headerText: document.getElementById('edit-header-text').value.trim()
       };
       
+      toggleSpinner('save-spinner', true);
+      
       try {
         const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminKey}`
           },
           body: JSON.stringify({
-            adminKey,
             active,
             allowedDomains,
             customization
@@ -573,62 +672,73 @@
         });
         
         if (!response.ok) {
-          throw new Error(`Server responded with status: ${response.status}`);
-        }
-        
-        // Update client in our list
-        const clientIndex = clients.findIndex(c => c.clientId === clientId);
-        if (clientIndex >= 0) {
-          clients[clientIndex].active = active;
-          clients[clientIndex].allowedDomains = allowedDomains;
-          if (!clients[clientIndex].chatbotConfig) {
-            clients[clientIndex].chatbotConfig = { customization: {} };
+          if (response.status === 401) {
+            localStorage.removeItem('adminKey');
+            document.getElementById('auth-card').style.display = 'block';
+            document.getElementById('dashboard-container').style.display = 'none';
+            throw new Error('Authentication expired or invalid');
           }
-          clients[clientIndex].chatbotConfig.customization = customization;
+          
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
         }
         
-        updateClientsList();
-        updateClientDropdown();
+        // Refresh client list
+        await fetchClients();
         
         editClientModal.hide();
         showNotification('Success', 'Client updated successfully');
       } catch (error) {
         console.error('Error updating client:', error);
-        showNotification('Error', 'Failed to update client', 'error');
+        showNotification('Error', 'Failed to update client: ' + error.message, 'error');
+      } finally {
+        toggleSpinner('save-spinner', false);
       }
     });
 
     // Toggle client status (activate/deactivate)
-    async function toggleClientStatus(clientId, activate) {
+    async function toggleClientStatus(clientId, activate, buttonElement) {
+      // Disable the button to prevent multiple clicks
+      if (buttonElement) {
+        buttonElement.disabled = true;
+      }
+      
       try {
         const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminKey}`
           },
           body: JSON.stringify({
-            adminKey,
             active: activate
           })
         });
         
         if (!response.ok) {
-          throw new Error(`Server responded with status: ${response.status}`);
+          if (response.status === 401) {
+            localStorage.removeItem('adminKey');
+            document.getElementById('auth-card').style.display = 'block';
+            document.getElementById('dashboard-container').style.display = 'none';
+            throw new Error('Authentication expired or invalid');
+          }
+          
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
         }
         
-        // Update client in our list
-        const clientIndex = clients.findIndex(c => c.clientId === clientId);
-        if (clientIndex >= 0) {
-          clients[clientIndex].active = activate;
-        }
-        
-        updateClientsList();
-        updateClientDropdown();
+        // Refresh client list
+        await fetchClients();
         
         showNotification('Success', `Client ${activate ? 'activated' : 'deactivated'} successfully`);
       } catch (error) {
         console.error('Error toggling client status:', error);
-        showNotification('Error', 'Failed to update client status', 'error');
+        showNotification('Error', 'Failed to update client status: ' + error.message, 'error');
+      } finally {
+        // Re-enable the button
+        if (buttonElement) {
+          buttonElement.disabled = false;
+        }
       }
     }
 
@@ -636,6 +746,15 @@
     document.getElementById('refresh-clients').addEventListener('click', function() {
       fetchClients();
     });
+
+    // Sign out
+    function signOut() {
+      localStorage.removeItem('adminKey');
+      adminKey = '';
+      document.getElementById('auth-card').style.display = 'block';
+      document.getElementById('dashboard-container').style.display = 'none';
+      document.getElementById('auth-form').reset();
+    }
 
     // Helper function to copy text to clipboard
     window.copyToClipboard = function(text) {
@@ -645,6 +764,7 @@
         })
         .catch(err => {
           console.error('Failed to copy:', err);
+          showNotification('Error', 'Failed to copy to clipboard', 'error');
         });
     };
   </script>
