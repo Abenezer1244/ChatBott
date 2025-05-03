@@ -249,13 +249,6 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-app.post('/api/clients', async (req, res) => {
-    console.log('Authentication attempt');
-    console.log('ENV ADMIN_KEY:', process.env.ADMIN_KEY);
-    console.log('Received admin key:', req.body.adminKey);
-    
-    
-  });
 
 // Define all routes in index.js for simplicity
 
@@ -661,6 +654,17 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
+
+
+app.post('/api/clients', async (req, res) => {
+    console.log('Authentication attempt');
+    console.log('ENV ADMIN_KEY:', process.env.ADMIN_KEY);
+    console.log('Received admin key:', req.body.adminKey);
+    
+    
+  });
+
+
 
 // Start server
 const server = app.listen(PORT, () => {
