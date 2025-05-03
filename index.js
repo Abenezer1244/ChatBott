@@ -18,9 +18,10 @@ const { v4: uuidv4 } = require('uuid');
 // Load environment variables
 dotenv.config();
 
+
 // Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_KEY = process.env.ADMIN_KEY;
