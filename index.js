@@ -678,3 +678,11 @@ process.on('SIGINT', () => {
   });
 // Export for testing
 module.exports = app;
+
+app.post('/api/clients', async (req, res) => {
+    console.log('Authentication attempt');
+    console.log('ENV ADMIN_KEY:', process.env.ADMIN_KEY);
+    console.log('Received admin key:', req.body.adminKey);
+    
+    
+  });
