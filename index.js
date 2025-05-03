@@ -84,6 +84,19 @@ mongoose.connect(MONGODB_URI, {
     process.exit(1);
   });
 
+// Proper process termination handling
+process.on('SIGINT', async () => {
+    console.log('SIGINT received, shutting down gracefully');
+    try {
+      await mongoose.connection.close(false); // Pass false to avoid using callbacks
+      console.log('MongoDB connection closed');
+      process.exit(0);
+    } catch (err) {
+      console.error('Error during shutdown:', err);
+      process.exit(1);
+    }
+  });
+
 // Set up mongoose to handle promise rejections properly
 mongoose.Promise = global.Promise;
 mongoose.connection.on('error', (err) => {
@@ -657,15 +670,11 @@ process.on('SIGTERM', () => {
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  server.close(() => {
-    console.log('Server closed');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed');
+    console.log('SIGINT received, shutting down gracefully');
+    setTimeout(() => {
+      console.log('Forcing shutdown');
       process.exit(0);
-    });
+    }, 2000);
   });
-});
-
 // Export for testing
 module.exports = app;
