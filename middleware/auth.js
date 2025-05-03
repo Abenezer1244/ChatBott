@@ -1,21 +1,26 @@
 // Authentication middleware for securing API routes
 const jwt = require('jsonwebtoken');
 
-// Middleware to verify admin authentication
+// Modify the verifyAdmin middleware to check for various auth methods:
 const verifyAdmin = (req, res, next) => {
-  const adminKey = req.body.adminKey || req.query.adminKey;
+    // Check multiple possible locations for adminKey
+    const adminKey = req.body.adminKey || 
+                    req.query.adminKey || 
+                    req.headers['adminkey'] ||
+                    req.headers['x-admin-key'] ||
+                    (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') 
+                     ? req.headers.authorization.substring(7) : null);
+    
+    if (!adminKey) {
+      return res.status(401).json({ error: 'Admin key is required' });
+    }
   
-  if (!adminKey) {
-    return res.status(401).json({ error: 'Admin key is required' });
-  }
-
-  if (adminKey !== process.env.ADMIN_KEY) {
-    // Use constant time comparison to prevent timing attacks
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  
-  next();
-};
+    if (adminKey !== process.env.ADMIN_KEY) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    next();
+  };
 
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {

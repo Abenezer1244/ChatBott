@@ -251,7 +251,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     // Configuration
-    const API_BASE_URL = window.location.origin; // Adjust if needed
+    const API_BASE_URL = 'https://chatbott-5579.onrender.com'; // Your actual server URL
     let adminKey = '';
     let clients = [];
     let currentClientId = '';
@@ -316,15 +316,18 @@
       toggleSpinner('auth-spinner', true);
       
       try {
-        // Verify admin key by attempting to fetch clients
+
+        
+// Verify admin key by attempting to fetch clients
         const response = await fetch(`${API_BASE_URL}/api/clients`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${inputAdminKey}`
-          }
-        });
-        
+            'Authorization': `Bearer ${inputAdminKey}`  // Change this line
+        }
+      });
+
+
         if (!response.ok) {
           throw new Error(`Authentication failed: ${response.status}`);
         }
@@ -365,9 +368,9 @@
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminKey}`
-          }
-        });
+            'Authorization': `Bearer ${adminKey}`  // Change this line
+        }
+      });
         
         if (!response.ok) {
           if (response.status === 401) {
@@ -491,18 +494,18 @@
       
       try {
         const response = await fetch(`${API_BASE_URL}/api/clients`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminKey}`
-          },
-          body: JSON.stringify({
-            name,
-            email,
-            allowedDomains,
-            widgetId
-          })
-        });
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminKey}`  // Change this line
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          allowedDomains,
+          widgetId
+      })
+  });
         
         if (!response.ok) {
           if (response.status === 401) {
@@ -550,12 +553,12 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminKey}`
+            'Authorization': `Bearer ${adminKey}`  // Change this line
           },
           body: JSON.stringify({
             clientId
-          })
-        });
+        })
+});
         
         if (!response.ok) {
           if (response.status === 401) {
@@ -662,14 +665,14 @@
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminKey}`
-          },
-          body: JSON.stringify({
-            active,
-            allowedDomains,
-            customization
-          })
-        });
+            'Authorization': `Bearer ${adminKey}`  // Change this line
+      },
+      body: JSON.stringify({
+        active,
+        allowedDomains,
+        customization
+      })
+    });
         
         if (!response.ok) {
           if (response.status === 401) {
@@ -708,12 +711,12 @@
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminKey}`
+            'Authorization': `Bearer ${adminKey}`  // Change this line
           },
           body: JSON.stringify({
             active: activate
-          })
-        });
+        })
+    });
         
         if (!response.ok) {
           if (response.status === 401) {

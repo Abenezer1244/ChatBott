@@ -10,7 +10,7 @@
     'use strict';
   
     // Configuration - replace with your actual deployment URL
-    const SERVER_URL = 'https://chatbott-5579.onrender.com';
+    const SERVER_URL = 'https://chatbott-5579.onrender.com'; // Your production server URL
     
     // Version tracking for cache busting and debugging
     const WIDGET_VERSION = '1.0.1';
