@@ -56,11 +56,11 @@ app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-        imgSrc: ["'self'", "data:"],
-        connectSrc: ["'self'"],
-        fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "http://localhost:*"],
+        fontSrc: ["'self'", "data:", "https://cdn.jsdelivr.net", "https:"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
         frameSrc: ["'self'"],
@@ -671,11 +671,24 @@ app.use((req, res) => {
 
 
 app.post('/api/clients', async (req, res) => {
-    console.log('Authentication attempt');
+    console.log('Authentication attempt received');
+    console.log('Request body:', req.body);
     console.log('ENV ADMIN_KEY:', process.env.ADMIN_KEY);
-    console.log('Received admin key:', req.body.adminKey);
     
+    // Make sure adminKey is being received
+    if (!req.body.adminKey) {
+      return res.status(400).json({ error: 'Admin key is required' });
+    }
     
+    // Check if the admin key matches
+    if (req.body.adminKey !== process.env.ADMIN_KEY) {
+      console.log('Admin key mismatch');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    // If we get here, authentication was successful
+    console.log('Authentication successful');
+    res.json({ message: 'Authentication successful' });
   });
 
 
