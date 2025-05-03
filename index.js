@@ -43,12 +43,12 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 
-// Modify the CORS configuration
 const corsOptions = {
-  origin: '*', // During development, allow all origins (restrict this in production)
+  origin: '*', // Or specify your customer's domain explicitly
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'x-access-token']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token']
 };
+app.use(cors(corsOptions));
 
 // Middleware
 app.use(helmet({
