@@ -65,7 +65,11 @@ app.use(helmet({
       frameSrc: ["'self'"],
     },
   },
-})); // Security headers
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+})); 
+
+
+// Security headers
 app.use(cors(corsOptions));
 app.use(compression()); // Compress responses
 app.use(express.json({ limit: '1mb' }));
