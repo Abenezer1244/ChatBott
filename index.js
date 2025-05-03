@@ -18,20 +18,18 @@ const { v4: uuidv4 } = require('uuid');
 // Load environment variables
 dotenv.config();
 
-
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 10000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
-const ADMIN_KEY = process.env.ADMIN_KEY;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // In your index.js file, add this line after initializing the Express app
 app.set('trust proxy', 1);
 
 // Validate required environment variables
-if (!MONGODB_URI || !JWT_SECRET || !ADMIN_KEY) {
+if (!MONGODB_URI || !JWT_SECRET) {
   console.error('Missing required environment variables. Check your .env file.');
   process.exit(1);
 }
@@ -45,30 +43,29 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 
-// Modify the CORS configuration in index.js:
+// Modify the CORS configuration
 const corsOptions = {
-    origin: '*', // During development, allow all origins (restrict this in production)
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'x-access-token', 'adminKey']
-  };
-  
+  origin: '*', // During development, allow all origins (restrict this in production)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'x-access-token']
+};
 
 // Middleware
 app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:"],
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "http://localhost:*"],
-        fontSrc: ["'self'", "data:", "https://cdn.jsdelivr.net", "https:"],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'self'"],
-      },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "http://localhost:*"],
+      fontSrc: ["'self'", "data:", "https://cdn.jsdelivr.net", "https:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'self'"],
     },
-  })); // Security headers
+  },
+})); // Security headers
 app.use(cors(corsOptions));
 app.use(compression()); // Compress responses
 app.use(express.json({ limit: '1mb' }));
@@ -88,32 +85,30 @@ app.use((req, res, next) => {
   next();
 });
 
-
-
-// MongoDB Connection with proper error handling and your timeout settings
+// MongoDB Connection with proper error handling and timeout settings
 mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000,   // Timeout after 5s instead of 30s
-    connectTimeoutMS: 10000,          // Give up initial connection after 10 seconds
-    socketTimeoutMS: 45000            // Close sockets after 45 seconds of inactivity
-  })
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
-  });
+  serverSelectionTimeoutMS: 5000,   // Timeout after 5s instead of 30s
+  connectTimeoutMS: 10000,          // Give up initial connection after 10 seconds
+  socketTimeoutMS: 45000            // Close sockets after 45 seconds of inactivity
+})
+.then(() => console.log('Connected to MongoDB'))
+.catch(err => {
+  console.error('MongoDB connection error:', err);
+  process.exit(1);
+});
 
 // Proper process termination handling
 process.on('SIGINT', async () => {
-    console.log('SIGINT received, shutting down gracefully');
-    try {
-      await mongoose.connection.close(false); // Pass false to avoid using callbacks
-      console.log('MongoDB connection closed');
-      process.exit(0);
-    } catch (err) {
-      console.error('Error during shutdown:', err);
-      process.exit(1);
-    }
-  });
+  console.log('SIGINT received, shutting down gracefully');
+  try {
+    await mongoose.connection.close(false); // Pass false to avoid using callbacks
+    console.log('MongoDB connection closed');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
+});
 
 // Set up mongoose to handle promise rejections properly
 mongoose.Promise = global.Promise;
@@ -230,44 +225,6 @@ clientSchema.methods.isDomainAllowed = function(domain) {
 
 const Client = mongoose.model('Client', clientSchema);
 
-// Middleware to verify admin authentication
-const verifyAdmin = (req, res, next) => {
-  const adminKey = req.body.adminKey || req.query.adminKey;
-  
-  if (!adminKey) {
-    return res.status(401).json({ error: 'Admin key is required' });
-  }
-
-  if (adminKey !== ADMIN_KEY) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  
-  next();
-};
-
-// Middleware to verify JWT token
-const verifyToken = (req, res, next) => {
-  const token = req.body.token || req.query.token || req.headers['x-access-token'];
-  
-  if (!token) {
-    return res.status(400).json({ error: 'Token is required' });
-  }
-  
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.clientData = decoded;
-    next();
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token has expired' });
-    }
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-};
-
-
-// Define all routes in index.js for simplicity
-
 // TOKEN VALIDATION ROUTE
 app.post('/api/validate', async (req, res) => {
   try {
@@ -335,7 +292,7 @@ app.post('/api/validate', async (req, res) => {
 // AUTHENTICATION ROUTES
 
 // Generate a new token for a client
-app.post('/api/auth/token', verifyAdmin, async (req, res) => {
+app.post('/api/auth/token', async (req, res) => {
   try {
     const { clientId } = req.body;
     
@@ -378,7 +335,7 @@ app.post('/api/auth/token', verifyAdmin, async (req, res) => {
   }
 });
 
-// Verify a token's validity without increasing usage count
+// Verify a token's validity
 app.post('/api/auth/verify', async (req, res) => {
   try {
     const { token } = req.body;
@@ -412,7 +369,7 @@ app.post('/api/auth/verify', async (req, res) => {
 // CLIENT MANAGEMENT ROUTES
 
 // Get all clients
-app.get('/api/clients', verifyAdmin, async (req, res) => {
+app.get('/api/clients', async (req, res) => {
   try {
     // Pagination parameters
     const page = parseInt(req.query.page) || 1;
@@ -463,7 +420,7 @@ app.get('/api/clients', verifyAdmin, async (req, res) => {
 });
 
 // Create a new client
-app.post('/api/clients', verifyAdmin, async (req, res) => {
+app.post('/api/clients', async (req, res) => {
   try {
     const { name, email, allowedDomains, widgetId } = req.body;
     
@@ -520,7 +477,7 @@ app.post('/api/clients', verifyAdmin, async (req, res) => {
 });
 
 // Get a single client by ID
-app.get('/api/clients/:clientId', verifyAdmin, async (req, res) => {
+app.get('/api/clients/:clientId', async (req, res) => {
   try {
     const { clientId } = req.params;
     
@@ -538,7 +495,7 @@ app.get('/api/clients/:clientId', verifyAdmin, async (req, res) => {
 });
 
 // Update a client
-app.put('/api/clients/:clientId', verifyAdmin, async (req, res) => {
+app.put('/api/clients/:clientId', async (req, res) => {
   try {
     const { clientId } = req.params;
     const { name, email, customization, active, allowedDomains, widgetId } = req.body;
@@ -592,7 +549,7 @@ app.put('/api/clients/:clientId', verifyAdmin, async (req, res) => {
 });
 
 // Delete a client
-app.delete('/api/clients/:clientId', verifyAdmin, async (req, res) => {
+app.delete('/api/clients/:clientId', async (req, res) => {
   try {
     const { clientId } = req.params;
     
@@ -612,7 +569,7 @@ app.delete('/api/clients/:clientId', verifyAdmin, async (req, res) => {
 });
 
 // Get client usage statistics
-app.get('/api/clients/:clientId/stats', verifyAdmin, async (req, res) => {
+app.get('/api/clients/:clientId/stats', async (req, res) => {
   try {
     const { clientId } = req.params;
     
@@ -671,30 +628,6 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-
-app.post('/api/clients', async (req, res) => {
-    console.log('Authentication attempt received');
-    console.log('Request body:', req.body);
-    console.log('ENV ADMIN_KEY:', process.env.ADMIN_KEY);
-    
-    // Make sure adminKey is being received
-    if (!req.body.adminKey) {
-      return res.status(400).json({ error: 'Admin key is required' });
-    }
-    
-    // Check if the admin key matches
-    if (req.body.adminKey !== process.env.ADMIN_KEY) {
-      console.log('Admin key mismatch');
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-    
-    // If we get here, authentication was successful
-    console.log('Authentication successful');
-    res.json({ message: 'Authentication successful' });
-  });
-
-
-
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT} in ${NODE_ENV} mode`);
@@ -713,11 +646,12 @@ process.on('SIGTERM', () => {
 });
 
 process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down gracefully');
-    setTimeout(() => {
-      console.log('Forcing shutdown');
-      process.exit(0);
-    }, 2000);
-  });
+  console.log('SIGINT received, shutting down gracefully');
+  setTimeout(() => {
+    console.log('Forcing shutdown');
+    process.exit(0);
+  }, 2000);
+});
+
 // Export for testing
 module.exports = app;

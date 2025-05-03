@@ -159,56 +159,55 @@
       }
     };
     
-    // Start initialization process
-    function startInitialization(config) {
-      // Show loading indicator while initializing
-      createLoadingIndicator();
-      
-      // Validate token and retrieve configuration
-      validateToken(config.token)
-        .then(response => {
-          if (!response || !response.valid) {
-            showError(response?.error || 'Unknown error');
-            return;
-          }
-          
-          // Store widget configuration
-          widgetConfig = {
-            ...config,
-            customization: {
-              ...DEFAULT_CUSTOMIZATION,
-              ...response.config.customization
-            },
-            widgetId: response.config.widgetId
-          };
-          
-          // Create widget elements
-          createWidgetElements();
-          
-          // Initialize TestMyPrompt widget
-          initializeOriginalWidget(widgetConfig.widgetId);
-          
-          // Set up token refresh timer
-          setupTokenRefresh();
-          
-          // Widget is now initialized
-          isWidgetInitialized = true;
-          removeLoadingIndicator();
-          
-          // Auto-open if specified
-          if (config.autoOpen) {
-            setTimeout(openWidget, 500);
-          }
-          
-          console.log('[MyChatWidget] Initialized successfully (v' + WIDGET_VERSION + ')');
-        })
-        .catch(error => {
-          console.error('[MyChatWidget] Initialization error:', error);
-          showError(ERROR_MESSAGES.INITIALIZATION_ERROR);
-          removeLoadingIndicator();
-        });
-    }
+// Start initialization process
+function startInitialization(config) {
+    // Show loading indicator while initializing
+    createLoadingIndicator();
     
+    // Validate token with the server
+    validateToken(config.token)
+      .then(response => {
+        if (!response || !response.valid) {
+          showError(response?.error || 'Unknown error');
+          return;
+        }
+        
+        // Store widget configuration
+        widgetConfig = {
+          ...config,
+          customization: {
+            ...DEFAULT_CUSTOMIZATION,
+            ...response.config.customization
+          },
+          widgetId: response.config.widgetId
+        };
+        
+        // Create widget elements
+        createWidgetElements();
+        
+        // Initialize TestMyPrompt widget
+        initializeOriginalWidget(widgetConfig.widgetId);
+        
+        // Set up token refresh timer
+        setupTokenRefresh();
+        
+        // Widget is now initialized
+        isWidgetInitialized = true;
+        removeLoadingIndicator();
+        
+        // Auto-open if specified
+        if (config.autoOpen) {
+          setTimeout(openWidget, 500);
+        }
+        
+        console.log('[MyChatWidget] Initialized successfully (v' + WIDGET_VERSION + ')');
+      })
+      .catch(error => {
+        console.error('[MyChatWidget] Initialization error:', error);
+        showError(ERROR_MESSAGES.INITIALIZATION_ERROR);
+        removeLoadingIndicator();
+      });
+  }   
     // Validate token with the server
     function validateToken(token) {
       connectionErrorCount = 0;
@@ -754,26 +753,6 @@
       
       // Dispatch event that widget was closed
       dispatchWidgetEvent('close');
-    }
-    
-    // Minimize widget (make it smaller but still visible)
-    function minimizeWidget() {
-      if (!isWidgetInitialized || !isWidgetOpen) return;
-      
-      chatFrame.style.height = '50px';
-      isWidgetMinimized = true;
-      
-      dispatchWidgetEvent('minimize');
-    }
-    
-    // Maximize widget (restore from minimized state)
-    function maximizeWidget() {
-      if (!isWidgetInitialized || !isWidgetOpen || !isWidgetMinimized) return;
-      
-      chatFrame.style.height = widgetConfig.customization.height;
-      isWidgetMinimized = false;
-      
-      dispatchWidgetEvent('maximize');
     }
     
     // Initialize the original TestMyPrompt widget
