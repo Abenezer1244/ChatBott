@@ -27,6 +27,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_KEY = process.env.ADMIN_KEY;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+// In your index.js file, add this line after initializing the Express app
+app.set('trust proxy', 1);
+
 // Validate required environment variables
 if (!MONGODB_URI || !JWT_SECRET || !ADMIN_KEY) {
   console.error('Missing required environment variables. Check your .env file.');
