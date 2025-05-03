@@ -323,8 +323,8 @@
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${inputAdminKey}`
-        }
+            'x-admin-key': adminKey  // This matches what your middleware expects
+      }
       });
 
 
