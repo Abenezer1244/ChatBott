@@ -323,7 +323,7 @@
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'x-admin-key': adminKey  // This matches what your middleware expects
+            'x-admin-key': inputAdminKey  // This matches what your middleware expects
       }
       });
 
@@ -368,7 +368,7 @@
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminKey}`  // Change this line
+            'x-admin-key': adminKey  // Change this line
         }
       });
         
@@ -497,7 +497,7 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminKey}`  // Change this line
+          'x-admin-key': adminKey  // Change this line
         },
         body: JSON.stringify({
           name,
@@ -553,7 +553,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminKey}`  // Change this line
+            'x-admin-key': adminKey  // Change this line
           },
           body: JSON.stringify({
             clientId
@@ -665,7 +665,7 @@
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminKey}`  // Change this line
+            'x-admin-key': adminKey  // Change this line
       },
       body: JSON.stringify({
         active,
@@ -711,7 +711,7 @@
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminKey}`  // Change this line
+            'x-admin-key': adminKey  // Change this line
           },
           body: JSON.stringify({
             active: activate

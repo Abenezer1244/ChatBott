@@ -5,11 +5,9 @@ const jwt = require('jsonwebtoken');
 const verifyAdmin = (req, res, next) => {
     // Check multiple possible locations for adminKey
     const adminKey = req.body.adminKey || 
-                   req.query.adminKey || 
-                   req.headers['x-admin-key'] ||
-                   req.headers['adminkey'] ||
-                   (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') 
-                    ? req.headers.authorization.substring(7) : null);
+                    req.query.adminKey || 
+                    req.headers['x-admin-key'] || // Make sure this line is present
+                    req.headers['adminkey'];
     
     if (!adminKey) {
       return res.status(401).json({ error: 'Admin key is required' });
@@ -21,6 +19,7 @@ const verifyAdmin = (req, res, next) => {
     
     next();
   };
+
   
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
