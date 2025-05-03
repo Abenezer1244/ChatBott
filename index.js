@@ -72,6 +72,8 @@ app.use((req, res, next) => {
   next();
 });
 
+
+
 // MongoDB Connection with proper error handling and your timeout settings
 mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 5000,   // Timeout after 5s instead of 30s
@@ -246,6 +248,14 @@ const verifyToken = (req, res, next) => {
     return res.status(401).json({ error: 'Invalid token' });
   }
 };
+
+app.post('/api/clients', async (req, res) => {
+    console.log('Authentication attempt');
+    console.log('ENV ADMIN_KEY:', process.env.ADMIN_KEY);
+    console.log('Received admin key:', req.body.adminKey);
+    
+    
+  });
 
 // Define all routes in index.js for simplicity
 
@@ -678,11 +688,3 @@ process.on('SIGINT', () => {
   });
 // Export for testing
 module.exports = app;
-
-app.post('/api/clients', async (req, res) => {
-    console.log('Authentication attempt');
-    console.log('ENV ADMIN_KEY:', process.env.ADMIN_KEY);
-    console.log('Received admin key:', req.body.adminKey);
-    
-    
-  });
