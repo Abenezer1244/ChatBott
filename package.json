@@ -6,10 +6,12 @@
     "scripts": {
         "start": "node index.js",
         "dev": "nodemon index.js",
-        "test": "jest"
+        "test": "jest",
+        "preinstall": "npm config set legacy-peer-deps true",
+        "postinstall": "npm install buffer-equal-constant-time@1.0.1 --no-save"
     },
     "engines": {
-        "node": ">=16.0.0"
+        "node": "16.20.0"
     },
     "dependencies": {
         "compression": "^1.8.0",
@@ -28,5 +30,9 @@
         "jest": "^29.7.0",
         "nodemon": "^3.1.10",
         "supertest": "^6.3.4"
-    }
+    },
+
+    "overrides": {
+        "buffer-equal-constant-time": "1.0.1"
+}
 }
