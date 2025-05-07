@@ -398,6 +398,7 @@ function startInitialization(config) {
       errorElement.style.maxWidth = '300px';
       errorElement.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
       
+
       const errorHeader = document.createElement('div');
       errorHeader.style.display = 'flex';
       errorHeader.style.alignItems = 'center';
@@ -755,7 +756,28 @@ function startInitialization(config) {
       dispatchWidgetEvent('close');
     }
     
-    // Initialize the original TestMyPrompt widget
+
+// Inside widget.js, let's modify the initializeOriginalWidget function:
+
+function initializeOriginalWidget(widgetId) {
+  // Instead of creating an iframe with custom HTML, we'll directly inject the TestMyPrompt script
+  const script = document.createElement('script');
+  script.src = `https://testmyprompt.com/widget/${widgetId}/widget.js`;
+  script.async = true;
+  document.body.appendChild(script);
+  
+  // Initialize with their native configuration
+  script.onload = function() {
+    if (window.AIChatWidget) {
+      window.AIChatWidget.init({
+        widgetId: widgetId,
+        // Pass through any required configurations but keep their native appearance
+        autoOpen: isWidgetOpen,
+      });
+    }
+  };
+}
+/*     // Initialize the original TestMyPrompt widget
     function initializeOriginalWidget(widgetId) {
       // Clear any existing content
       while (chatFrame.firstChild) {
@@ -790,9 +812,9 @@ function startInitialization(config) {
               overflow: hidden;
             }
             
-            /* Override TestMyPrompt's default styles */
+            
             .tms-chat-widget-toggle {
-              display: none !important; /* Hide their toggle button */
+              display: none !important; // Hide their toggle button 
             }
             
             .tms-chat-widget-container {
@@ -812,13 +834,13 @@ function startInitialization(config) {
               margin: 0 !important;
             }
             
-            /* Custom header styles */
+            // Custom header styles 
             .tms-chat-header {
               background-color: ${widgetConfig.customization.primaryColor} !important;
               color: ${widgetConfig.customization.secondaryColor} !important;
             }
             
-            /* Custom scrollbar */
+            //Custom scrollbar 
             ::-webkit-scrollbar {
               width: 8px;
             }
@@ -927,7 +949,7 @@ function startInitialization(config) {
       `);
       iframeDoc.close();
     }
-    
+ */    
     // Refresh token internal implementation
     function refreshTokenInternal() {
       // Clear any existing refresh timeout
