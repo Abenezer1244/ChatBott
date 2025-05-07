@@ -62,105 +62,122 @@
         // Prevent multiple initializations
         if (isWidgetInitialized) {
           console.warn('[MyChatWidget] Widget already initialized');
-          return;
+          return this;
         }
         
-        // Merge default config with user-provided config
-        const finalConfig = {
-          ...config
-        };
-        
         // Validate required configuration
-        if (!finalConfig.token || !finalConfig.clientId) {
+        if (!config.token || !config.clientId) {
           console.error('[MyChatWidget] Invalid widget configuration. Required parameters: token, clientId');
-          return;
+          return this;
         }
         
         // Store token data
         currentTokenData = {
-          token: finalConfig.token,
-          clientId: finalConfig.clientId
+          token: config.token,
+          clientId: config.clientId
         };
         
-        // Set up window event listeners
-        setupEventListeners();
-        
         // Start initialization process
-        startInitialization(finalConfig);
+        validateAndLoadOriginalWidget(config);
         
         return this;
       },
       
-      // Public method to open the widget
-      open: function() {
-        if (!isWidgetInitialized) {
-          console.warn('[MyChatWidget] Widget not initialized');
-          return this;
-        }
-        
-        openWidget();
-        return this;
-      },
-      
-      // Public method to close the widget
-      close: function() {
-        if (!isWidgetInitialized) {
-          console.warn('[MyChatWidget] Widget not initialized');
-          return this;
-        }
-        
-        closeWidget();
-        return this;
-      },
-      
-      // Public method to toggle the widget
-      toggle: function() {
-        if (!isWidgetInitialized) {
-          console.warn('[MyChatWidget] Widget not initialized');
-          return this;
-        }
-        
-        toggleWidget();
-        return this;
-      },
-      
-      // Public method to update customization
-      updateCustomization: function(customization) {
-        if (!isWidgetInitialized) {
-          console.warn('[MyChatWidget] Widget not initialized');
-          return this;
-        }
-        
-        if (widgetConfig && widgetConfig.customization) {
-          widgetConfig.customization = {
-            ...widgetConfig.customization,
-            ...customization
-          };
-          
-          applyCustomization();
-        }
-        
-        return this;
-      },
-      
-      // Public method to refresh the token
-      refreshToken: function() {
-        if (!currentTokenData) {
-          console.warn('[MyChatWidget] No token data available');
-          return Promise.reject(new Error('No token data available'));
-        }
-        
-        return refreshTokenInternal();
-      },
-      
-      // Public method to get current version
+      // Get current version
       getVersion: function() {
         return WIDGET_VERSION;
       }
     };
     
-// Start initialization process
-function startInitialization(config) {
+    // Validate token and load the original widget
+    function validateAndLoadOriginalWidget(config) {
+      console.log('[MyChatWidget] Validating token and loading original widget...');
+      
+      // Validate token with the server
+      fetch(`${SERVER_URL}/api/validate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          token: config.token,
+          domain: window.location.hostname
+        })
+      })
+      .then(response => {
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('token_expired');
+          } else if (response.status === 403) {
+            throw new Error('domain_not_authorized');
+          }
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (!data || !data.valid) {
+          console.error('[MyChatWidget] Invalid token response');
+          return;
+        }
+        
+        // Load the original TestMyPrompt widget
+        const widgetId = data.config.widgetId;
+        loadOriginalWidget(widgetId);
+        
+        // Mark as initialized
+        isWidgetInitialized = true;
+        console.log('[MyChatWidget] Initialized successfully (v' + WIDGET_VERSION + ')');
+      })
+      .catch(error => {
+        console.error('[MyChatWidget] Initialization error:', error);
+        
+        // Handle specific errors
+        if (error.message === 'token_expired') {
+          console.error('[MyChatWidget] Token has expired');
+        } else if (error.message === 'domain_not_authorized') {
+          console.error('[MyChatWidget] This domain is not authorized to use this chatbot');
+        }
+      });
+    }
+    
+    // Load the original TestMyPrompt widget
+    function loadOriginalWidget(widgetId) {
+      // Remove any previous instances of the script
+      if (originalWidgetScript && originalWidgetScript.parentNode) {
+        originalWidgetScript.parentNode.removeChild(originalWidgetScript);
+      }
+      
+      // Create and load the original widget script
+      originalWidgetScript = document.createElement('script');
+      originalWidgetScript.src = `https://testmyprompt.com/widget/${widgetId}/widget.js`;
+      originalWidgetScript.async = true;
+      
+      // Add the script to the document
+      document.body.appendChild(originalWidgetScript);
+      
+      // Initialize the original widget once loaded
+      originalWidgetScript.onload = function() {
+        if (window.AIChatWidget) {
+          window.AIChatWidget.init({
+            widgetId: widgetId
+            // No other customizations to ensure original widget appearance
+          });
+          
+          console.log('[MyChatWidget] Original widget loaded successfully');
+        } else {
+          console.error('[MyChatWidget] Failed to find original widget initialization function');
+        }
+      };
+    }
+})();
+
+
+(function() {
+    'use strict';
+    
+    // Start initialization process
+    function startInitialization(config) {
     // Show loading indicator while initializing
     createLoadingIndicator();
     
@@ -498,7 +515,7 @@ function startInitialization(config) {
       }, 250));
     }
     
-    // Create widget elements
+     // Create widget elements
     function createWidgetElements() {
       // Create main container
       widgetContainer = document.createElement('div');
@@ -511,8 +528,8 @@ function startInitialization(config) {
       widgetContainer.style.flexDirection = 'column';
       widgetContainer.style.alignItems = 'flex-end';
       document.body.appendChild(widgetContainer);
-      
-      // Create chat container
+       
+         // Create chat container
       chatFrame = document.createElement('div');
       chatFrame.id = 'my-chat-widget-frame';
       chatFrame.style.width = widgetConfig.customization.width;
@@ -573,7 +590,7 @@ function startInitialization(config) {
       // Add close button to chat frame
       addCloseButton();
     }
-    
+     
     // Add a close button to the chat frame
     function addCloseButton() {
       const closeButton = document.createElement('div');
@@ -759,197 +776,25 @@ function startInitialization(config) {
 
 // Inside widget.js, let's modify the initializeOriginalWidget function:
 
-function initializeOriginalWidget(widgetId) {
-  // Instead of creating an iframe with custom HTML, we'll directly inject the TestMyPrompt script
-  const script = document.createElement('script');
-  script.src = `https://testmyprompt.com/widget/${widgetId}/widget.js`;
-  script.async = true;
-  document.body.appendChild(script);
-  
-  // Initialize with their native configuration
-  script.onload = function() {
-    if (window.AIChatWidget) {
-      window.AIChatWidget.init({
-        widgetId: widgetId,
-        // Pass through any required configurations but keep their native appearance
-        autoOpen: isWidgetOpen,
-      });
-    }
-  };
-}
-/*     // Initialize the original TestMyPrompt widget
-    function initializeOriginalWidget(widgetId) {
-      // Clear any existing content
-      while (chatFrame.firstChild) {
-        chatFrame.removeChild(chatFrame.firstChild);
-      }
-      
-      // Add close button back
-      addCloseButton();
-      
-      // Create a hidden iframe to isolate the TestMyPrompt widget
-      const iframe = document.createElement('iframe');
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
-      iframe.style.border = 'none';
-      chatFrame.appendChild(iframe);
-      
-      // Write content to iframe
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      iframeDoc.open();
-      iframeDoc.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Chat</title>
-          <style>
-            body {
-              margin: 0;
-              padding: 0;
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-              overflow: hidden;
-            }
-            
-            
-            .tms-chat-widget-toggle {
-              display: none !important; // Hide their toggle button 
-            }
-            
-            .tms-chat-widget-container {
-              position: static !important;
-              width: 100% !important;
-              height: 100% !important;
-              max-height: 100% !important;
-            }
-            
-            .tms-chat-widget-frame {
-              position: static !important;
-              width: 100% !important;
-              height: 100% !important;
-              max-height: 100% !important;
-              box-shadow: none !important;
-              border-radius: 0 !important;
-              margin: 0 !important;
-            }
-            
-            // Custom header styles 
-            .tms-chat-header {
-              background-color: ${widgetConfig.customization.primaryColor} !important;
-              color: ${widgetConfig.customization.secondaryColor} !important;
-            }
-            
-            //Custom scrollbar 
-            ::-webkit-scrollbar {
-              width: 8px;
-            }
-            
-            ::-webkit-scrollbar-track {
-              background: #f1f1f1;
-            }
-            
-            ::-webkit-scrollbar-thumb {
-              background: #ccc;
-              border-radius: 4px;
-            }
-            
-            ::-webkit-scrollbar-thumb:hover {
-              background: #999;
-            }
-          </style>
-        </head>
-        <body>
-          <!-- TestMyPrompt Widget Script -->
-          <script src="https://testmyprompt.com/widget/${widgetId}/widget.js"><\/script>
-          <script>
-            // Initialize the TestMyPrompt widget
-            document.addEventListener('DOMContentLoaded', function() {
-              if (window.AIChatWidget) {
-                window.AIChatWidget.init({
-                  widgetId: "${widgetId}",
-                  autoOpen: true  // Always open in our frame
-                });
-                
-                // Apply custom styles after widget is loaded
-                setTimeout(function() {
-                  // Update header text
-                  const header = document.querySelector('.tms-chat-header');
-                  if (header) {
-                    header.textContent = "${widgetConfig.customization.headerText}";
-                  }
-                  
-                  // Additional customizations
-                  const widgetContainer = document.querySelector('.tms-chat-widget-container');
-                  if (widgetContainer) {
-                    // Add branded footer if specified
-                    if ("${widgetConfig.customization.botName}" !== 'Assistant') {
-                      const footer = document.createElement('div');
-                      footer.style.padding = '8px';
-                      footer.style.textAlign = 'center';
-                      footer.style.fontSize = '12px';
-                      footer.style.color = '#999';
-                      footer.style.borderTop = '1px solid #eee';
-                      footer.textContent = "Powered by ${widgetConfig.customization.botName}";
-                      widgetContainer.appendChild(footer);
-                    }
-                    
-                    // Add logo if specified
-                    if ("${widgetConfig.customization.logoUrl}") {
-                      const logoContainer = document.createElement('div');
-                      logoContainer.style.position = 'absolute';
-                      logoContainer.style.top = '10px';
-                      logoContainer.style.right = '10px';
-                      logoContainer.style.width = '24px';
-                      logoContainer.style.height = '24px';
-                      
-                      const logo = document.createElement('img');
-                      logo.src = "${widgetConfig.customization.logoUrl}";
-                      logo.style.width = '100%';
-                      logo.style.height = '100%';
-                      logo.style.objectFit = 'contain';
-                      
-                      logoContainer.appendChild(logo);
-                      const header = document.querySelector('.tms-chat-header');
-                      if (header) {
-                        header.style.position = 'relative';
-                        header.appendChild(logoContainer);
-                      }
-                    }
-                  }
-                  
-                  // Forward error messages to parent window
-                  window.addEventListener('error', function(event) {
-                    window.parent.postMessage({
-                      type: 'chatbot-event',
-                      event: 'error',
-                      error: event.error ? event.error.toString() : 'Unknown error'
-                    }, '*');
-                  });
-                  
-                  // Add message bus to communicate between frames
-                  window.addEventListener('message', function(event) {
-                    if (event.data && event.data.type === 'chatbot-command') {
-                      // Handle commands from parent window
-                      switch(event.data.command) {
-                        case 'clear':
-                          // Clear chat history
-                          const resetButton = document.querySelector('.tms-chat-reset-button');
-                          if (resetButton) resetButton.click();
-                          break;
-                      }
-                    }
-                  });
-                }, 500);
-              }
+
+      function initializeOriginalWidget(widgetId) {
+        // Instead of creating an iframe with custom HTML, we'll directly inject the TestMyPrompt script
+        const script = document.createElement('script');
+        script.src = `https://testmyprompt.com/widget/${widgetId}/widget.js`;
+        script.async = true;
+        document.body.appendChild(script);
+        
+        // Initialize with their native configuration
+        script.onload = function() {
+          if (window.AIChatWidget) {
+            window.AIChatWidget.init({
+              widgetId: widgetId,
+              // Pass through any required configurations but keep their native appearance
+              autoOpen: isWidgetOpen,
             });
-          <\/script>
-        </body>
-        </html>
-      `);
-      iframeDoc.close();
-    }
- */    
+          }
+        };
+      }
     // Refresh token internal implementation
     function refreshTokenInternal() {
       // Clear any existing refresh timeout
