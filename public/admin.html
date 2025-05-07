@@ -75,6 +75,7 @@
     <div id="dashboard-container">
       <div class="row">
         <!-- Create New Client Card -->
+<!-- Create New Client Card (Updated) -->
         <div class="col-md-6">
           <div class="card">
             <div class="card-header">Create New Client</div>
@@ -92,10 +93,6 @@
                   <label for="allowed-domains" class="form-label">Allowed Domains (comma separated)</label>
                   <input type="text" class="form-control" id="allowed-domains" placeholder="example.com, client-site.org">
                   <div class="form-text">Leave empty to allow all domains</div>
-                </div>
-                <div class="mb-3">
-                  <label for="widget-id" class="form-label">TestMyPrompt Widget ID</label>
-                  <input type="text" class="form-control" id="widget-id" required>
                 </div>
                 <button type="submit" class="btn btn-success">
                   <span class="spinner-border spinner-border-sm d-none" id="create-spinner"></span>
@@ -493,13 +490,14 @@
     }
 
     // Create a new client
+// Create a new client (Updated to automatically use the fixed widget ID)
     document.getElementById('create-client-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
       const name = document.getElementById('client-name').value.trim();
       const email = document.getElementById('client-email').value.trim();
       const allowedDomainsStr = document.getElementById('allowed-domains').value.trim();
-      const widgetId = document.getElementById('widget-id').value.trim();
+      const widgetId = "6809b3a1523186af0b2c9933"; // Fixed widget ID
       
       let allowedDomains = [];
       if (allowedDomainsStr) {

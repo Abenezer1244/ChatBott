@@ -70,8 +70,8 @@ router.post('/', verifyAdmin, async (req, res) => {
     const { name, email, allowedDomains, widgetId } = req.body;
     
     // Validate required fields
-    if (!name || !email || !widgetId) {
-      return res.status(400).json({ error: 'Name, email, and widgetId are required' });
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Name and email are required' });
     }
     
     // Check if email already exists
@@ -83,6 +83,9 @@ router.post('/', verifyAdmin, async (req, res) => {
     // Generate a unique client ID
     const clientId = `client-${uuidv4().slice(0, 8)}`;
     
+    // Use the widget ID from the request if provided, otherwise use the default one
+    const defaultWidgetId = "6809b3a1523186af0b2c9933";
+    
     // Create new client
     const newClient = new Client({
       clientId,
@@ -90,7 +93,7 @@ router.post('/', verifyAdmin, async (req, res) => {
       email,
       allowedDomains: allowedDomains || [],
       chatbotConfig: {
-        widgetId
+        widgetId: widgetId || defaultWidgetId
       }
     });
     
