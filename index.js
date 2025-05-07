@@ -31,6 +31,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token']
 }));
 
+// Make sure these lines appear BEFORE your route registrations
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
 // In your index.js file, add this line after initializing the Express app
 app.set('trust proxy', 1);
 

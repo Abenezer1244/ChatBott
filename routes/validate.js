@@ -9,8 +9,18 @@ const Client = require('../models/Client');
  * @desc    Validate token and get chatbot configuration
  * @access  Public
  */
+// In routes/validate.js
+// In routes/validate.js
 router.post('/validate', async (req, res) => {
   try {
+    // Add logging to debug the request
+    console.log('Validate route called. Request body:', req.body);
+    
+    // Handle case where req.body might be undefined
+    if (!req.body) {
+      return res.status(400).json({ error: 'Request body is missing' });
+    }
+    
     const { token, domain } = req.body;
     
     if (!token) {
@@ -58,7 +68,7 @@ router.post('/validate', async (req, res) => {
     client.lastRequestDate = new Date();
     await client.save();
     
-    // Return chatbot configuration 
+    // Return chatbot configuration
     res.json({
       valid: true,
       config: {
