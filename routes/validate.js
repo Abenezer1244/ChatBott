@@ -58,7 +58,7 @@ router.post('/validate', async (req, res) => {
     client.lastRequestDate = new Date();
     await client.save();
     
-    // Return chatbot configuration
+    // Return chatbot configuration 
     res.json({
       valid: true,
       config: {
@@ -69,6 +69,42 @@ router.post('/validate', async (req, res) => {
   } catch (error) {
     console.error('Token validation error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * @route   POST /api/usage/track
+ * @desc    Track widget usage
+ * @access  Public
+ */
+router.post('/usage/track', async (req, res) => {
+  try {
+    const { clientId, url, referrer } = req.body;
+    
+    if (!clientId) {
+      return res.status(400).json({ error: 'Client ID is required' });
+    }
+    
+    // Find the client
+    const client = await Client.findOne({ clientId });
+    
+    if (client) {
+      // Update usage stats
+      client.requestCount += 1;
+      client.lastRequestDate = new Date();
+      
+      // Could add more detailed analytics here
+      
+      await client.save();
+    }
+    
+    // Always return success, even if client not found
+    // This prevents leaking information
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Usage tracking error:', error);
+    // Still return success to prevent errors in the beacon call
+    res.status(200).json({ success: true });
   }
 });
 

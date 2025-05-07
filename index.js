@@ -28,6 +28,9 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // In your index.js file, add this line after initializing the Express app
 app.set('trust proxy', 1);
 
+// In index.js where you set up routes
+app.use('/api', require('./routes/validate'));
+
 // Validate required environment variables
 if (!MONGODB_URI || !JWT_SECRET) {
   console.error('Missing required environment variables. Check your .env file.');
@@ -227,7 +230,7 @@ clientSchema.methods.isDomainAllowed = function(domain) {
   );
 };
 
-const Client = mongoose.model('Client', clientSchema);
+const Client = require('./models/Client');
 
 // TOKEN VALIDATION ROUTE
 app.post('/api/validate', async (req, res) => {
