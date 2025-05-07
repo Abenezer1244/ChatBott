@@ -25,6 +25,12 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+app.use(cors({
+  origin: '*',  // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token']
+}));
+
 // In your index.js file, add this line after initializing the Express app
 app.set('trust proxy', 1);
 
