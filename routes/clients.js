@@ -224,7 +224,6 @@ router.delete('/:clientId', verifyAdmin, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 /**
  * @route   GET /api/clients/:clientId/stats
  * @desc    Get client usage statistics

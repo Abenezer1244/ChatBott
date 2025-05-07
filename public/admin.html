@@ -313,6 +313,7 @@
     }
 
     // Update clients list in the table
+    // Update clients list in the table
     function updateClientsList() {
       const clientList = document.getElementById('client-list');
       clientList.innerHTML = '';
@@ -342,6 +343,7 @@
             <button class="btn btn-sm btn-outline-danger ${client.active ? 'deactivate-client' : 'activate-client'}" data-client-id="${client.clientId}">
               ${client.active ? 'Deactivate' : 'Activate'}
             </button>
+            <button class="btn btn-sm btn-outline-dark delete-client" data-client-id="${client.clientId}">Delete</button>
           </td>
         `;
         
@@ -361,6 +363,14 @@
           const clientId = this.getAttribute('data-client-id');
           const activate = this.classList.contains('activate-client');
           toggleClientStatus(clientId, activate, this);
+        });
+      });
+      
+      // Add event listeners for delete buttons
+      document.querySelectorAll('.delete-client').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const clientId = this.getAttribute('data-client-id');
+          deleteClient(clientId, this);
         });
       });
     }
@@ -625,7 +635,45 @@
         }
       }
     }
-
+    // Delete client function
+    async function deleteClient(clientId, buttonElement) {
+      // Ask for confirmation
+      if (!confirm(`Are you sure you want to permanently delete client ${clientId}? This action cannot be undone.`)) {
+        return; // User cancelled
+      }
+      
+      // Disable the button to prevent multiple clicks
+      if (buttonElement) {
+        buttonElement.disabled = true;
+      }
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
+        }
+        
+        // Refresh client list
+        await fetchClients();
+        
+        showNotification('Success', 'Client deleted successfully');
+      } catch (error) {
+        console.error('Error deleting client:', error);
+        showNotification('Error', 'Failed to delete client: ' + error.message, 'error');
+      } finally {
+        // Re-enable the button
+        if (buttonElement) {
+          buttonElement.disabled = false;
+        }
+      }
+    }
     // Refresh clients list
     document.getElementById('refresh-clients').addEventListener('click', function() {
       fetchClients();
