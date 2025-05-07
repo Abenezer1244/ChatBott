@@ -21,7 +21,8 @@
         "jsonwebtoken": "^9.0.2",
         "mongodb": "^6.16.0",
         "mongoose": "^8.14.1",
-        "uuid": "^9.0.1"
+        "uuid": "^9.0.1",
+        "buffer-equal-constant-time": "1.0.1"
     },
     "devDependencies": {
         "jest": "^29.7.0",
