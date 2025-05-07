@@ -51,6 +51,16 @@
       justify-content: center;
       margin: 20px 0;
     }
+    .pagination-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .page-info {
+      margin: 10px 0;
+      text-align: center;
+      color: #6c757d;
+    }
   </style>
 </head>
 <body>
@@ -164,6 +174,18 @@
               </tbody>
             </table>
           </div>
+          
+          <!-- Pagination Controls -->
+          <div class="page-info" id="page-info">
+            Showing clients <span id="start-index">1</span>-<span id="end-index">10</span> of <span id="total-clients">0</span>
+          </div>
+          <div class="pagination-container">
+            <nav aria-label="Client list pagination">
+              <ul class="pagination" id="pagination-controls">
+                <!-- Pagination controls will be added here -->
+              </ul>
+            </nav>
+          </div>
         </div>
       </div>
     </div>
@@ -242,13 +264,19 @@
     const toastEl = document.getElementById('toast-notification');
     let toast;
 
+    // Pagination state
+    let currentPage = 1;
+    let totalPages = 1;
+    let pageSize = 10;
+    let totalClients = 0;
+
     // Initialize components after DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
       toast = new bootstrap.Toast(toastEl);
       editClientModal = new bootstrap.Modal(document.getElementById('editClientModal'));
       
       // Fetch clients on page load
-      fetchClients();
+      fetchClients(currentPage);
     });
 
     // Show/hide loading spinners
@@ -279,13 +307,13 @@
       toast.show();
     }
 
-    // Fetch all clients
-    async function fetchClients() {
+    // Fetch clients with pagination
+    async function fetchClients(page = 1, limit = pageSize) {
       try {
         document.getElementById('clients-loading').style.display = 'flex';
         toggleSpinner('refresh-spinner', true);
         
-        const response = await fetch(`${API_BASE_URL}/api/clients`, {
+        const response = await fetch(`${API_BASE_URL}/api/clients?page=${page}&limit=${limit}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
@@ -298,9 +326,13 @@
         
         const data = await response.json();
         clients = data.clients || [];
+        totalClients = data.pagination.total || 0;
+        totalPages = data.pagination.pages || 1;
+        currentPage = data.pagination.page || 1;
         
         updateClientsList();
         updateClientDropdown();
+        updatePagination();
         
         showNotification('Success', 'Clients loaded successfully');
       } catch (error) {
@@ -312,7 +344,68 @@
       }
     }
 
-    // Update clients list in the table
+    // Update pagination display and controls
+    function updatePagination() {
+      // Update page info text
+      const startIndex = (currentPage - 1) * pageSize + 1;
+      const endIndex = Math.min(currentPage * pageSize, totalClients);
+      
+      document.getElementById('start-index').textContent = totalClients > 0 ? startIndex : 0;
+      document.getElementById('end-index').textContent = endIndex;
+      document.getElementById('total-clients').textContent = totalClients;
+      
+      // Update pagination controls
+      const paginationControls = document.getElementById('pagination-controls');
+      paginationControls.innerHTML = '';
+      
+      // Previous button
+      const prevLi = document.createElement('li');
+      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      const prevBtn = document.createElement('button');
+      prevBtn.className = 'page-link';
+      prevBtn.innerHTML = '&laquo;';
+      prevBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+          fetchClients(currentPage - 1);
+        }
+      });
+      prevLi.appendChild(prevBtn);
+      paginationControls.appendChild(prevLi);
+      
+      // Page numbers
+      const startPage = Math.max(1, currentPage - 2);
+      const endPage = Math.min(totalPages, startPage + 4);
+      
+      for (let i = startPage; i <= endPage; i++) {
+        const pageLi = document.createElement('li');
+        pageLi.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        const pageBtn = document.createElement('button');
+        pageBtn.className = 'page-link';
+        pageBtn.textContent = i;
+        pageBtn.addEventListener('click', () => {
+          if (i !== currentPage) {
+            fetchClients(i);
+          }
+        });
+        pageLi.appendChild(pageBtn);
+        paginationControls.appendChild(pageLi);
+      }
+      
+      // Next button
+      const nextLi = document.createElement('li');
+      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      const nextBtn = document.createElement('button');
+      nextBtn.className = 'page-link';
+      nextBtn.innerHTML = '&raquo;';
+      nextBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+          fetchClients(currentPage + 1);
+        }
+      });
+      nextLi.appendChild(nextBtn);
+      paginationControls.appendChild(nextLi);
+    }
+
     // Update clients list in the table
     function updateClientsList() {
       const clientList = document.getElementById('client-list');
@@ -439,8 +532,8 @@
         // Reset form
         document.getElementById('create-client-form').reset();
         
-        // Refresh client list
-        await fetchClients();
+        // Refresh client list - go to first page when adding a new client
+        await fetchClients(1);
         
         showNotification('Success', 'Client created successfully');
       } catch (error) {
@@ -585,8 +678,8 @@
           throw new Error(errorData.error || `Server responded with status: ${response.status}`);
         }
         
-        // Refresh client list
-        await fetchClients();
+        // Refresh client list - keep on the same page
+        await fetchClients(currentPage);
         
         editClientModal.hide();
         showNotification('Success', 'Client updated successfully');
@@ -621,8 +714,8 @@
           throw new Error(errorData.error || `Server responded with status: ${response.status}`);
         }
         
-        // Refresh client list
-        await fetchClients();
+        // Refresh client list - keep on the same page
+        await fetchClients(currentPage);
         
         showNotification('Success', `Client ${activate ? 'activated' : 'deactivated'} successfully`);
       } catch (error) {
@@ -635,6 +728,7 @@
         }
       }
     }
+    
     // Delete client function
     async function deleteClient(clientId, buttonElement) {
       // Ask for confirmation
@@ -660,8 +754,12 @@
           throw new Error(errorData.error || `Server responded with status: ${response.status}`);
         }
         
-        // Refresh client list
-        await fetchClients();
+        // After deleting, check if we should go to previous page
+        // (e.g., if we deleted the last item on the current page)
+        const shouldGoBack = clients.length === 1 && currentPage > 1;
+        
+        // Refresh client list - potentially go to previous page
+        await fetchClients(shouldGoBack ? currentPage - 1 : currentPage);
         
         showNotification('Success', 'Client deleted successfully');
       } catch (error) {
@@ -674,9 +772,10 @@
         }
       }
     }
+    
     // Refresh clients list
     document.getElementById('refresh-clients').addEventListener('click', function() {
-      fetchClients();
+      fetchClients(currentPage);
     });
 
     // Helper function to copy text to clipboard
