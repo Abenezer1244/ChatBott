@@ -28,6 +28,18 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // Add this to your .env file: ADMIN_DOMAIN=trychatbot.tech
 const ADMIN_DOMAIN = process.env.ADMIN_DOMAIN || 'trychatbot.tech';
 
+// Trust proxy for Render - Important for HTTPS
+app.set('trust proxy', true);
+
+// Force HTTPS redirect in production
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && req.header('x-forwarded-proto') !== 'https') {
+    res.redirect(`https://${req.header('host')}${req.url}`);
+  } else {
+    next();
+  }
+});
+
 app.use(cors({
   origin: '*',  // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -248,8 +260,8 @@ const Client = require('./models/Client');
 // This should come before other routes
 app.get('/', (req, res) => {
   // Check if the request is coming from the admin domain
-  const host = req.get('host');
-  const hostname = req.hostname;
+  const host = req.get('host') || '';
+  const hostname = host.split(':')[0]; // Remove port if present
   
   console.log('Request host:', host);
   console.log('Request hostname:', hostname);
@@ -302,8 +314,8 @@ app.get('/', (req, res) => {
 
 // Alternative route for direct admin access (as fallback)
 app.get('/admin', (req, res) => {
-  const host = req.get('host');
-  const hostname = req.hostname;
+  const host = req.get('host') || '';
+  const hostname = host.split(':')[0]; // Remove port if present
   
   // Only allow admin access from the admin domain
   if (hostname === ADMIN_DOMAIN || host === ADMIN_DOMAIN || 
