@@ -25,6 +25,9 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+// Add this to your .env file: ADMIN_DOMAIN=trychatbot.tech
+const ADMIN_DOMAIN = process.env.ADMIN_DOMAIN || 'trychatbot.tech';
+
 app.use(cors({
   origin: '*',  // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -80,7 +83,6 @@ app.use(helmet({
   },
   crossOriginResourcePolicy: { policy: "cross-origin" }
 })); 
-
 
 // Security headers
 app.use(cors(corsOptions));
@@ -241,6 +243,79 @@ clientSchema.methods.isDomainAllowed = function(domain) {
 };
 
 const Client = require('./models/Client');
+
+// DOMAIN-BASED ADMIN ACCESS ROUTE
+// This should come before other routes
+app.get('/', (req, res) => {
+  // Check if the request is coming from the admin domain
+  const host = req.get('host');
+  const hostname = req.hostname;
+  
+  console.log('Request host:', host);
+  console.log('Request hostname:', hostname);
+  console.log('Admin domain:', ADMIN_DOMAIN);
+  
+  // Check if the request is from trychatbot.tech
+  if (hostname === ADMIN_DOMAIN || host === ADMIN_DOMAIN || 
+      hostname === `www.${ADMIN_DOMAIN}` || host === `www.${ADMIN_DOMAIN}`) {
+    // Serve the admin panel
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  } else {
+    // For other domains, show a welcome page or redirect
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Chatbot Leasing System</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+          }
+          .container {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          }
+          h1 { color: #333; }
+          p { color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Chatbot Leasing System</h1>
+          <p>Welcome to the Chatbot Leasing API</p>
+          <p>For admin access, please visit the designated admin domain.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+});
+
+// Alternative route for direct admin access (as fallback)
+app.get('/admin', (req, res) => {
+  const host = req.get('host');
+  const hostname = req.hostname;
+  
+  // Only allow admin access from the admin domain
+  if (hostname === ADMIN_DOMAIN || host === ADMIN_DOMAIN || 
+      hostname === `www.${ADMIN_DOMAIN}` || host === `www.${ADMIN_DOMAIN}`) {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  } else {
+    res.status(403).json({ 
+      error: 'Admin panel can only be accessed from the authorized domain',
+      adminDomain: ADMIN_DOMAIN 
+    });
+  }
+});
 
 // TOKEN VALIDATION ROUTE
 app.post('/api/validate', async (req, res) => {
@@ -648,6 +723,7 @@ app.use((req, res) => {
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT} in ${NODE_ENV} mode`);
+  console.log(`Admin panel accessible at: ${ADMIN_DOMAIN}`);
 });
 
 // Handle graceful shutdown
