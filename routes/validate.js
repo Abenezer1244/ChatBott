@@ -9,9 +9,8 @@ const Client = require('../models/Client');
  * @desc    Validate token and get chatbot configuration
  * @access  Public
  */
-// In routes/validate.js
-// In routes/validate.js
-router.post('/validate', async (req, res) => {
+// FIXED: Changed from '/validate' to '/' since this router is already mounted on /api
+router.post('/', async (req, res) => {
   try {
     // Add logging to debug the request
     console.log('Validate route called. Request body:', req.body);

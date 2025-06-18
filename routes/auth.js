@@ -8,14 +8,23 @@ const Client = require('../models/Client');
 /**
  * @route   POST /api/auth/token
  * @desc    Generate a new token for a client
- * @access  Admin only
+ * @access  Admin only OR Client direct (based on admin key presence)
  */
-router.post('/token', verifyAdmin, async (req, res) => {
+// FIXED: Updated to handle both admin and direct client token generation
+router.post('/token', async (req, res) => {
   try {
-    const { clientId } = req.body;
+    const { clientId, adminKey } = req.body;
     
     if (!clientId) {
       return res.status(400).json({ error: 'Client ID is required' });
+    }
+    
+    // Check if admin key is provided for admin access
+    if (adminKey) {
+      // Verify admin key
+      if (adminKey !== process.env.ADMIN_KEY) {
+        return res.status(401).json({ error: 'Invalid admin key' });
+      }
     }
     
     // Find the client
@@ -45,7 +54,8 @@ router.post('/token', verifyAdmin, async (req, res) => {
     
     res.json({ 
       token,
-      expiresIn: process.env.TOKEN_EXPIRY || '1h'
+      expiresIn: process.env.TOKEN_EXPIRY || '1h',
+      clientId: client.clientId
     });
   } catch (error) {
     console.error('Token generation error:', error);
@@ -84,6 +94,63 @@ router.post('/verify', async (req, res) => {
     }
   } catch (error) {
     console.error('Token verification error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * @route   POST /api/auth/refresh
+ * @desc    Refresh an existing token
+ * @access  Public (requires valid token)
+ */
+// FIXED: Added token refresh endpoint
+router.post('/refresh', async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ error: 'Token is required' });
+    }
+    
+    // Verify the existing token (even if expired, we can still extract clientId)
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true });
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    // Find the client
+    const client = await Client.findOne({ clientId: decoded.clientId });
+    
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    
+    if (!client.active) {
+      return res.status(403).json({ error: 'Client account is inactive' });
+    }
+    
+    // Generate new token
+    const newToken = jwt.sign({
+      clientId: client.clientId,
+      active: client.active,
+      allowedDomains: client.allowedDomains,
+      tokenType: 'jwt',
+      iat: Math.floor(Date.now() / 1000)
+    }, process.env.JWT_SECRET, { 
+      expiresIn: process.env.TOKEN_EXPIRY || '1h'
+    });
+    
+    console.log(`Token refreshed for client: ${decoded.clientId}`);
+    
+    res.json({ 
+      token: newToken,
+      expiresIn: process.env.TOKEN_EXPIRY || '1h',
+      clientId: client.clientId
+    });
+  } catch (error) {
+    console.error('Token refresh error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

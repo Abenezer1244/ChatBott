@@ -43,7 +43,7 @@ app.use((req, res, next) => {
 app.use(cors({
   origin: '*',  // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'x-admin-key']
 }));
 
 // Make sure these lines appear BEFORE your route registrations
@@ -53,7 +53,7 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // In your index.js file, add this line after initializing the Express app
 app.set('trust proxy', 1);
 
-// In index.js where you set up routes
+// FIXED: Register validate routes properly (removed duplicate)
 app.use('/api', require('./routes/validate'));
 
 // Validate required environment variables
@@ -74,7 +74,7 @@ const apiLimiter = rateLimit({
 const corsOptions = {
   origin: '*', // Or specify your customer's domain explicitly
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'x-admin-key']
 };
 app.use(cors(corsOptions));
 
@@ -83,24 +83,21 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:", "https://testmyprompt.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "http://localhost:*"],
+      connectSrc: ["'self'", "http://localhost:*", "https://testmyprompt.com"],
       fontSrc: ["'self'", "data:", "https://cdn.jsdelivr.net", "https:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
-      frameSrc: ["'self'"],
+      frameSrc: ["'self'", "https://testmyprompt.com"],
     },
   },
   crossOriginResourcePolicy: { policy: "cross-origin" }
 })); 
 
 // Security headers
-app.use(cors(corsOptions));
 app.use(compression()); // Compress responses
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Apply rate limiting to all API requests
@@ -148,112 +145,7 @@ mongoose.connection.on('error', (err) => {
   process.exit(1);
 });
 
-// Define Client Schema directly in index.js to keep it self-contained
-const clientSchema = new mongoose.Schema({
-  clientId: { 
-    type: String, 
-    required: true, 
-    unique: true,
-    index: true
-  },
-  name: { 
-    type: String, 
-    required: true,
-    trim: true
-  },
-  email: { 
-    type: String, 
-    required: true,
-    lowercase: true,
-    trim: true,
-    match: [/\S+@\S+\.\S+/, 'Please enter a valid email address']
-  },
-  active: { 
-    type: Boolean, 
-    default: true 
-  },
-  allowedDomains: { 
-    type: [String], 
-    default: [] 
-  },
-  createdAt: { 
-    type: Date, 
-    default: Date.now,
-    immutable: true 
-  },
-  updatedAt: { 
-    type: Date, 
-    default: Date.now 
-  },
-  chatbotConfig: {
-    widgetId: { 
-      type: String, 
-      required: true 
-    },
-    customization: {
-      primaryColor: { 
-        type: String, 
-        default: '#0084ff',
-        match: [/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, 'Please enter a valid hex color']
-      },
-      secondaryColor: { 
-        type: String, 
-        default: '#ffffff',
-        match: [/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, 'Please enter a valid hex color']
-      },
-      headerText: { 
-        type: String, 
-        default: 'Chat with us',
-        trim: true,
-        maxlength: 50
-      },
-      botName: { 
-        type: String, 
-        default: 'Assistant',
-        trim: true,
-        maxlength: 30 
-      },
-      logoUrl: { 
-        type: String, 
-        default: '',
-        trim: true
-      }
-    }
-  },
-  requestCount: { 
-    type: Number, 
-    default: 0,
-    min: 0
-  },
-  lastRequestDate: { 
-    type: Date 
-  }
-}, {
-  timestamps: true,
-  indexes: [
-    { clientId: 1 },
-    { email: 1 },
-    { active: 1 }
-  ]
-});
-
-// Pre-save middleware to update updatedAt
-clientSchema.pre('save', function(next) {
-  this.updatedAt = new Date();
-  next();
-});
-
-// Method to check if a domain is allowed
-clientSchema.methods.isDomainAllowed = function(domain) {
-  if (!this.allowedDomains || this.allowedDomains.length === 0) {
-    return true; // All domains allowed
-  }
-  
-  return this.allowedDomains.some(allowedDomain => 
-    domain === allowedDomain || domain.endsWith(`.${allowedDomain}`)
-  );
-};
-
+// FIXED: Use the external Client model instead of inline definition
 const Client = require('./models/Client');
 
 // DOMAIN-BASED ADMIN ACCESS ROUTE
@@ -703,6 +595,15 @@ app.get('/api/clients/:clientId/stats', async (req, res) => {
     console.error('Stats retrieval error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// FIXED: Added widget.js serving endpoint
+app.get('/widget.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendFile(path.join(__dirname, 'public', 'widget.js'));
 });
 
 // Health check endpoint
