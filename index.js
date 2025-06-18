@@ -40,11 +40,26 @@ app.use((req, res, next) => {
   }
 });
 
-app.use(cors({
-  origin: '*',  // Allow all origins
+// Enhanced CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Allow all origins for now, but log them
+    console.log('Request from origin:', origin);
+    callback(null, true);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'x-admin-key']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'x-admin-key'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
+// Preflight handler for all routes
+app.options('*', cors(corsOptions));
 
 // Make sure these lines appear BEFORE your route registrations
 app.use(express.json({ limit: '1mb' }));
@@ -52,9 +67,6 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // In your index.js file, add this line after initializing the Express app
 app.set('trust proxy', 1);
-
-// FIXED: Register validate routes properly (removed duplicate)
-app.use('/api', require('./routes/validate'));
 
 // Validate required environment variables
 if (!MONGODB_URI || !JWT_SECRET) {
@@ -68,15 +80,13 @@ const apiLimiter = rateLimit({
   max: parseInt(process.env.RATE_LIMIT_MAX) || 100, // limit each IP to 100 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' }
+  message: { error: 'Too many requests, please try again later.' },
+  skip: (req) => {
+    // Skip rate limiting for admin requests
+    const adminKey = req.body?.adminKey || req.query?.adminKey || req.headers['x-admin-key'];
+    return adminKey === process.env.ADMIN_KEY;
+  }
 });
-
-const corsOptions = {
-  origin: '*', // Or specify your customer's domain explicitly
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'x-admin-key']
-};
-app.use(cors(corsOptions));
 
 // Middleware
 app.use(helmet({
@@ -86,7 +96,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:", "https://testmyprompt.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "http://localhost:*", "https://testmyprompt.com"],
+      connectSrc: ["'self'", "http://localhost:*", "https://testmyprompt.com", "https://*.onrender.com"],
       fontSrc: ["'self'", "data:", "https://cdn.jsdelivr.net", "https:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -145,7 +155,7 @@ mongoose.connection.on('error', (err) => {
   process.exit(1);
 });
 
-// FIXED: Use the external Client model instead of inline definition
+// Use the external Client model
 const Client = require('./models/Client');
 
 // DOMAIN-BASED ADMIN ACCESS ROUTE
@@ -597,12 +607,13 @@ app.get('/api/clients/:clientId/stats', async (req, res) => {
   }
 });
 
-// FIXED: Added widget.js serving endpoint
+// Widget.js serving endpoint
 app.get('/widget.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes cache
   res.sendFile(path.join(__dirname, 'public', 'widget.js'));
 });
 
@@ -615,28 +626,60 @@ app.get('/api/health', (req, res) => {
     environment: NODE_ENV,
     timestamp: new Date(),
     uptime: process.uptime(),
-    mongodb: mongoStatus
+    mongodb: mongoStatus,
+    version: '1.0.0'
+  });
+});
+
+// Test endpoint for debugging
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'API is working',
+    timestamp: new Date(),
+    headers: req.headers,
+    origin: req.get('origin'),
+    host: req.get('host')
   });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Error stack:', err.stack);
+  
+  // Specific error handling
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      error: 'Validation Error',
+      details: Object.values(err.errors).map(e => e.message)
+    });
+  }
+  
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      error: 'Invalid ID format'
+    });
+  }
+  
   res.status(500).json({ 
     error: 'Something went wrong on the server',
-    message: NODE_ENV === 'development' ? err.message : undefined
+    message: NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
 });
 
 // Handle 404 errors
 app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
+  res.status(404).json({ 
+    error: 'Not found',
+    path: req.originalUrl,
+    method: req.method
+  });
 });
 
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT} in ${NODE_ENV} mode`);
   console.log(`Admin panel accessible at: ${ADMIN_DOMAIN}`);
+  console.log(`Widget endpoint available`);
 });
 
 // Handle graceful shutdown
