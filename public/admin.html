@@ -75,7 +75,6 @@
     <div id="dashboard-container">
       <div class="row">
         <!-- Create New Client Card -->
-<!-- Create New Client Card (Updated) -->
         <div class="col-md-6">
           <div class="card">
             <div class="card-header">Create New Client</div>
@@ -254,6 +253,7 @@
   <script>
     // Configuration
     const API_BASE_URL = ''; // Your actual server URL
+    const ADMIN_KEY = '12!Michael'; // The admin key from your .env file
     let clients = [];
     let currentClientId = '';
     let currentToken = '';
@@ -313,7 +313,8 @@
         const response = await fetch(`${API_BASE_URL}/api/clients?page=${page}&limit=${limit}`, {
           method: 'GET',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
           }
         });
         
@@ -490,7 +491,6 @@
     }
 
     // Create a new client
-// Create a new client (Updated to automatically use the fixed widget ID)
     document.getElementById('create-client-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
@@ -510,13 +510,15 @@
         const response = await fetch(`${API_BASE_URL}/api/clients`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
           },
           body: JSON.stringify({
             name,
             email,
             allowedDomains,
-            widgetId
+            widgetId,
+            adminKey: ADMIN_KEY
           })
         });
         
@@ -561,7 +563,8 @@
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            clientId
+            clientId,
+            adminKey: ADMIN_KEY
           })
         });
         
@@ -662,12 +665,14 @@
         const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
           },
           body: JSON.stringify({
             active,
             allowedDomains,
-            customization
+            customization,
+            adminKey: ADMIN_KEY
           })
         });
         
@@ -700,10 +705,12 @@
         const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
           },
           body: JSON.stringify({
-            active: activate
+            active: activate,
+            adminKey: ADMIN_KEY
           })
         });
         
@@ -740,10 +747,11 @@
       }
       
       try {
-        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}?confirm=true`, {
           method: 'DELETE',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
           }
         });
         
