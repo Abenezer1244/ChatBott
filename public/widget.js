@@ -1,14 +1,16 @@
 /**
- * ChatBot Leasing Widget
- * Production-ready implementation for embedding TestMyPrompt chatbots
+ * ChatBot Leasing Widget - Fixed Production Version
+ * Complete implementation for embedding TestMyPrompt chatbots
  */
 
 (function() {
   'use strict';
 
   // Configuration
-  const SERVER_URL = window.location.origin || 'https://chatbott-5579.onrender.com';
-  const WIDGET_VERSION = '1.0.4';
+  const SERVER_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') 
+    ? 'http://localhost:10000' 
+    : 'https://chatbott-5579.onrender.com';
+  const WIDGET_VERSION = '1.0.5';
   
   // Widget state
   let isWidgetInitialized = false;
@@ -17,6 +19,7 @@
   let connectionErrorCount = 0;
   let originalWidgetScript = null;
   let widgetContainer = null;
+  let widgetIframe = null;
   
   // Error messages
   const ERROR_MESSAGES = {
@@ -61,6 +64,8 @@
         config: config.config || {}
       };
       
+      console.log('[MyChatWidget] Starting initialization...');
+      
       // Start initialization process
       validateAndLoadOriginalWidget(config);
       
@@ -93,8 +98,11 @@
       })
     })
     .then(response => {
+      console.log('[MyChatWidget] Validation response status:', response.status);
+      
       if (!response.ok) {
         return response.json().then(errorData => {
+          console.error('[MyChatWidget] Validation failed:', errorData);
           if (response.status === 401) {
             throw new Error('token_expired');
           } else if (response.status === 403) {
@@ -106,6 +114,8 @@
       return response.json();
     })
     .then(data => {
+      console.log('[MyChatWidget] Validation response:', data);
+      
       if (!data || !data.valid) {
         console.error('[MyChatWidget] Invalid token response');
         showErrorNotification(ERROR_MESSAGES.INITIALIZATION_ERROR);
@@ -118,6 +128,9 @@
       // Load the original TestMyPrompt widget
       const widgetId = data.config.widgetId;
       const customization = data.config.customization || {};
+      
+      console.log('[MyChatWidget] Loading widget with ID:', widgetId);
+      
       loadOriginalWidget(widgetId, customization);
       
       // Set up token refresh timer
@@ -161,21 +174,40 @@
     });
   }
   
-  // Load the original TestMyPrompt widget with improved URL handling
+  // Load the original TestMyPrompt widget with comprehensive URL testing
   function loadOriginalWidget(widgetId, customization) {
+    console.log('[MyChatWidget] Loading original widget with ID:', widgetId);
+    
     // Remove any previous instances of the script
     if (originalWidgetScript && originalWidgetScript.parentNode) {
       originalWidgetScript.parentNode.removeChild(originalWidgetScript);
     }
     
-    // Updated TestMyPrompt widget URL formats based on real implementation
+    // Comprehensive list of possible TestMyPrompt widget URLs
     const possibleUrls = [
+      // Primary TestMyPrompt URLs
+      `https://testmyprompt.com/widget/${widgetId}/widget.js`,
+      `https://testmyprompt.com/api/widget/${widgetId}/script.js`,
+      `https://testmyprompt.com/widgets/${widgetId}.js`,
+      `https://testmyprompt.com/embed/${widgetId}.js`,
+      
+      // Alternative subdomains
       `https://widget.testmyprompt.com/${widgetId}.js`,
       `https://widgets.testmyprompt.com/${widgetId}/embed.js`,
       `https://cdn.testmyprompt.com/widgets/${widgetId}.js`,
-      `https://testmyprompt.com/api/widget/${widgetId}/script`,
-      `https://app.testmyprompt.com/embed/${widgetId}.js`
+      `https://app.testmyprompt.com/embed/${widgetId}.js`,
+      `https://api.testmyprompt.com/widget/${widgetId}.js`,
+      
+      // Static file variations
+      `https://testmyprompt.com/static/widgets/${widgetId}.js`,
+      `https://testmyprompt.com/assets/widgets/${widgetId}.js`,
+      
+      // Version-specific URLs
+      `https://testmyprompt.com/v1/widget/${widgetId}.js`,
+      `https://testmyprompt.com/v2/widget/${widgetId}.js`
     ];
+    
+    console.log('[MyChatWidget] Trying to load widget from multiple URLs...');
     
     // Try to load the widget with fallback URLs
     tryLoadWidgetScript(possibleUrls, 0, widgetId, customization);
@@ -201,8 +233,11 @@
     // Set timeout for script loading
     const loadTimeout = setTimeout(() => {
       console.warn(`[MyChatWidget] Script loading timeout for ${currentUrl}`);
+      if (originalWidgetScript && originalWidgetScript.parentNode) {
+        originalWidgetScript.parentNode.removeChild(originalWidgetScript);
+      }
       tryLoadWidgetScript(urls, index + 1, widgetId, customization);
-    }, 10000); // 10 second timeout
+    }, 8000); // 8 second timeout
     
     originalWidgetScript.onload = function() {
       clearTimeout(loadTimeout);
@@ -210,8 +245,8 @@
       
       // Initialize the original widget once loaded
       setTimeout(() => {
-        initializeTestMyPromptWidget(widgetId, customization);
-      }, 500);
+        initializeTestMyPromptWidget(widgetId, customization, currentUrl);
+      }, 1000);
     };
     
     originalWidgetScript.onerror = function(error) {
@@ -232,29 +267,51 @@
   }
   
   // Enhanced TestMyPrompt widget initialization
-  function initializeTestMyPromptWidget(widgetId, customization) {
+  function initializeTestMyPromptWidget(widgetId, customization, loadedUrl) {
+    console.log('[MyChatWidget] Initializing TestMyPrompt widget...');
+    
     // Wait for the script to fully load and initialize
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 15;
     
     function tryInitialize() {
       attempts++;
+      console.log(`[MyChatWidget] Initialization attempt ${attempts}/${maxAttempts}`);
       
-      // Try different possible global objects that TestMyPrompt might use
+      // Comprehensive list of possible global objects that TestMyPrompt might use
       const possibleWidgets = [
+        // Common TestMyPrompt globals
+        window.AIChatWidget,
         window.testMyPrompt,
         window.TestMyPrompt,
         window.TMP,
-        window.AIChatWidget,
         window.TestMyPromptWidget,
         window.ChatWidget,
-        window.TMPWidget
+        window.TMPWidget,
+        
+        // Alternative naming conventions
+        window.PromptWidget,
+        window.AIWidget,
+        window.EmbedWidget,
+        window.ChatBot,
+        window.Chatbot,
+        
+        // Possible dynamic globals based on widget ID
+        window[`widget_${widgetId}`],
+        window[`tmp_${widgetId}`],
+        
+        // Check for any widget-like objects
+        ...Object.keys(window).map(key => 
+          key.toLowerCase().includes('widget') || 
+          key.toLowerCase().includes('chat') || 
+          key.toLowerCase().includes('prompt') ? window[key] : null
+        ).filter(Boolean)
       ];
       
       let widgetFound = false;
       
       for (let widget of possibleWidgets) {
-        if (widget && (typeof widget.init === 'function' || typeof widget.embed === 'function')) {
+        if (widget && (typeof widget.init === 'function' || typeof widget.embed === 'function' || typeof widget.render === 'function')) {
           console.log('[MyChatWidget] Found TestMyPrompt widget:', widget);
           
           // Apply customization and initialize
@@ -264,15 +321,21 @@
             autoOpen: currentTokenData.config.autoOpen || false,
             theme: customization,
             customization: customization,
+            container: 'body',
             ...customization
           };
           
           try {
             // Try different initialization methods
             if (typeof widget.init === 'function') {
+              console.log('[MyChatWidget] Calling widget.init()');
               widget.init(widgetOptions);
             } else if (typeof widget.embed === 'function') {
+              console.log('[MyChatWidget] Calling widget.embed()');
               widget.embed(widgetOptions);
+            } else if (typeof widget.render === 'function') {
+              console.log('[MyChatWidget] Calling widget.render()');
+              widget.render(widgetOptions);
             }
             
             console.log('[MyChatWidget] TestMyPrompt widget initialized successfully');
@@ -284,9 +347,37 @@
         }
       }
       
+      // Also check for initialization functions that might exist globally
+      if (!widgetFound) {
+        const initFunctions = [
+          'initAIChatWidget',
+          'initTestMyPrompt',
+          'initChatWidget',
+          'initWidget',
+          `init_${widgetId}`,
+          'renderWidget'
+        ];
+        
+        for (let funcName of initFunctions) {
+          if (typeof window[funcName] === 'function') {
+            try {
+              console.log(`[MyChatWidget] Calling global function: ${funcName}`);
+              window[funcName]({
+                widgetId: widgetId,
+                ...customization
+              });
+              widgetFound = true;
+              break;
+            } catch (error) {
+              console.error(`[MyChatWidget] Error calling ${funcName}:`, error);
+            }
+          }
+        }
+      }
+      
       if (!widgetFound && attempts < maxAttempts) {
         // Wait and try again
-        setTimeout(tryInitialize, 1000);
+        setTimeout(tryInitialize, 1500);
       } else if (!widgetFound) {
         console.warn('[MyChatWidget] TestMyPrompt widget not found after all attempts, creating fallback');
         createFallbackWidget(widgetId, customization);
@@ -296,7 +387,7 @@
     tryInitialize();
   }
   
-  // Enhanced fallback widget with better UI and functionality
+  // Enhanced fallback widget with direct TestMyPrompt integration
   function createFallbackWidget(widgetId, customization) {
     console.log('[MyChatWidget] Creating enhanced fallback widget');
     
@@ -376,19 +467,45 @@
             justify-content: center;
           ">&times;</button>
         </div>
-        <iframe 
-          src="https://testmyprompt.com/chat/${widgetId}?embedded=true"
-          style="
-            width: 100%;
-            height: calc(100% - 60px);
-            border: none;
-            background: ${secondaryColor};
-          "
-          title="Chat Widget"
-          loading="lazy">
-        </iframe>
+        <div id="chat-iframe-content" style="
+          width: 100%;
+          height: calc(100% - 60px);
+          background: ${secondaryColor};
+          position: relative;
+        ">
+          <div id="loading-message" style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          ">
+            <div style="margin-bottom: 10px;">Loading chat...</div>
+            <div style="
+              width: 40px;
+              height: 40px;
+              border: 3px solid #f3f3f3;
+              border-top: 3px solid ${primaryColor};
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+              margin: 0 auto;
+            "></div>
+          </div>
+        </div>
       </div>
     `;
+    
+    // Add CSS animation for loading spinner
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
     
     document.body.appendChild(widgetContainer);
     
@@ -396,12 +513,24 @@
     const chatButton = document.getElementById('chat-widget-button');
     const chatContainer = document.getElementById('chat-widget-iframe-container');
     const closeButton = document.getElementById('close-chat-widget');
+    const iframeContent = document.getElementById('chat-iframe-content');
     
     chatButton.addEventListener('click', function() {
-      chatContainer.style.display = chatContainer.style.display === 'none' ? 'block' : 'none';
+      const isVisible = chatContainer.style.display !== 'none';
       
-      // Track usage
-      trackWidgetUsage();
+      if (!isVisible) {
+        chatContainer.style.display = 'block';
+        
+        // Load iframe if not already loaded
+        if (!widgetIframe) {
+          loadChatIframe(widgetId, iframeContent);
+        }
+        
+        // Track usage
+        trackWidgetUsage();
+      } else {
+        chatContainer.style.display = 'none';
+      }
     });
     
     closeButton.addEventListener('click', function() {
@@ -416,6 +545,89 @@
     });
     
     console.log('[MyChatWidget] Enhanced fallback widget created successfully');
+  }
+  
+  // Load chat iframe with multiple URL attempts
+  function loadChatIframe(widgetId, container) {
+    console.log('[MyChatWidget] Loading chat iframe...');
+    
+    const possibleIframeUrls = [
+      `https://testmyprompt.com/chat/${widgetId}?embedded=true`,
+      `https://testmyprompt.com/embed/${widgetId}`,
+      `https://app.testmyprompt.com/chat/${widgetId}`,
+      `https://widget.testmyprompt.com/chat/${widgetId}`,
+      `https://testmyprompt.com/widget/${widgetId}/chat`
+    ];
+    
+    function tryIframeUrl(urls, index) {
+      if (index >= urls.length) {
+        // All URLs failed, show error message
+        container.innerHTML = `
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+          ">
+            <div style="margin-bottom: 10px;">Chat temporarily unavailable</div>
+            <div style="font-size: 12px;">Please try again later</div>
+          </div>
+        `;
+        return;
+      }
+      
+      const currentUrl = possibleIframeUrls[index];
+      console.log(`[MyChatWidget] Trying iframe URL: ${currentUrl}`);
+      
+      widgetIframe = document.createElement('iframe');
+      widgetIframe.src = currentUrl;
+      widgetIframe.style.cssText = `
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: #ffffff;
+      `;
+      widgetIframe.title = 'Chat Widget';
+      widgetIframe.loading = 'lazy';
+      
+      // Handle iframe load/error
+      const loadTimeout = setTimeout(() => {
+        console.warn(`[MyChatWidget] Iframe loading timeout for ${currentUrl}`);
+        if (widgetIframe && widgetIframe.parentNode) {
+          widgetIframe.parentNode.removeChild(widgetIframe);
+        }
+        tryIframeUrl(urls, index + 1);
+      }, 10000);
+      
+      widgetIframe.onload = function() {
+        clearTimeout(loadTimeout);
+        console.log('[MyChatWidget] Iframe loaded successfully from:', currentUrl);
+        // Remove loading message
+        const loadingMessage = document.getElementById('loading-message');
+        if (loadingMessage) {
+          loadingMessage.remove();
+        }
+      };
+      
+      widgetIframe.onerror = function() {
+        clearTimeout(loadTimeout);
+        console.warn(`[MyChatWidget] Iframe failed to load from ${currentUrl}`);
+        if (widgetIframe && widgetIframe.parentNode) {
+          widgetIframe.parentNode.removeChild(widgetIframe);
+        }
+        tryIframeUrl(urls, index + 1);
+      };
+      
+      // Clear container and add iframe
+      container.innerHTML = '';
+      container.appendChild(widgetIframe);
+    }
+    
+    tryIframeUrl(possibleIframeUrls, 0);
   }
   
   // Track widget usage
@@ -495,7 +707,7 @@
     });
   }
   
-  // Enhanced error notification with better styling and positioning
+  // Enhanced error notification
   function showErrorNotification(message) {
     console.error('[MyChatWidget] Error:', message);
     
@@ -529,7 +741,6 @@
       border-left: 4px solid #ff1744;
     `;
     
-    // Create notification content
     notification.innerHTML = `
       <div style="display: flex; align-items: flex-start; gap: 12px;">
         <div style="flex-shrink: 0; font-size: 18px;">⚠️</div>
@@ -551,7 +762,7 @@
           justify-content: center;
           opacity: 0.8;
           transition: opacity 0.2s;
-        " onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">&times;</button>
+        ">&times;</button>
       </div>
     `;
     
@@ -654,6 +865,7 @@
       connectionErrorCount = 0;
       originalWidgetScript = null;
       widgetContainer = null;
+      widgetIframe = null;
       
       console.log('[MyChatWidget] Widget destroyed successfully');
     },
@@ -835,17 +1047,73 @@
   // Initialize mobile layout check
   document.addEventListener('DOMContentLoaded', handleMobileLayout);
   
+  // Enhanced error handling for network issues
+  window.addEventListener('online', () => {
+    console.log('[MyChatWidget] Network connection restored');
+    if (currentTokenData && !isWidgetInitialized) {
+      setTimeout(() => {
+        validateAndLoadOriginalWidget({
+          token: currentTokenData.token,
+          clientId: currentTokenData.clientId,
+          config: currentTokenData.config
+        });
+      }, 1000);
+    }
+  });
+  
+  window.addEventListener('offline', () => {
+    console.log('[MyChatWidget] Network connection lost');
+    if (window.MyChatWidget.debug) {
+      showErrorNotification('Network connection lost. Chat may not function properly.');
+    }
+  });
+  
   // Log initialization
   console.log('[MyChatWidget] Enhanced widget script loaded (v' + WIDGET_VERSION + ')');
   
   // Expose debugging utilities in development
-  if (window.location.hostname === 'localhost' || window.location.hostname.includes('dev')) {
+  if (window.location.hostname === 'localhost' || 
+      window.location.hostname.includes('dev') || 
+      window.location.hostname.includes('staging')) {
     window.MyChatWidget.debug = true;
     window.MyChatWidget._debugUtils = {
       showNotification: showErrorNotification,
       trackUsage: trackWidgetUsage,
       getCurrentToken: () => currentTokenData,
-      getConnectionErrors: () => connectionErrorCount
+      getConnectionErrors: () => connectionErrorCount,
+      validateToken: () => {
+        if (currentTokenData) {
+          return validateAndLoadOriginalWidget({
+            token: currentTokenData.token,
+            clientId: currentTokenData.clientId,
+            config: currentTokenData.config
+          });
+        }
+        return Promise.reject('No token data available');
+      },
+      testIframe: (url) => {
+        const container = document.getElementById('chat-iframe-content');
+        if (container) {
+          loadChatIframe(url.split('/').pop(), container);
+        }
+      }
     };
+    console.log('[MyChatWidget] Debug mode enabled - additional utilities available at window.MyChatWidget._debugUtils');
   }
+  
+  // Global error handler for widget-related errors
+  window.addEventListener('error', (event) => {
+    if (event.filename && event.filename.includes('widget')) {
+      console.error('[MyChatWidget] Widget script error:', event.error);
+      if (window.MyChatWidget.debug) {
+        showErrorNotification('Widget script error detected');
+      }
+    }
+  });
+  
+  // Performance monitoring
+  if (window.performance && window.performance.mark) {
+    window.performance.mark('mychatwidget-script-loaded');
+  }
+  
 })();
