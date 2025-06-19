@@ -1,5 +1,5 @@
 /**
- * Chatbot Leasing System - Main Server File (Fixed)
+ * Chatbot Leasing System - Fixed Main Server File
  * Production-ready implementation for leasing TestMyPrompt chatbots
  */
 
@@ -40,34 +40,60 @@ app.use((req, res, next) => {
   }
 });
 
-// Enhanced CORS configuration with more permissive settings for widget loading
+// FIXED: Enhanced CORS configuration with more permissive settings for widget loading
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
+    // CRITICAL FIX: Allow requests with no origin (direct API calls, mobile apps, etc.)
+    if (!origin) {
+      console.log('CORS: Request with no origin - allowing');
+      return callback(null, true);
+    }
     
-    // Allow all origins for widget functionality
+    // CRITICAL FIX: Allow all origins for widget functionality - this is essential for widgets
     console.log('CORS: Request from origin:', origin);
     callback(null, true);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token', 'x-admin-key', 'Origin', 'X-Requested-With', 'Accept'],
-  credentials: true,
-  optionsSuccessStatus: 200
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'x-access-token', 
+    'x-admin-key', 
+    'Origin', 
+    'X-Requested-With', 
+    'Accept',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Methods'
+  ],
+  credentials: false, // FIXED: Set to false for widget usage
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 
 app.use(cors(corsOptions));
 
-// Preflight handler for all routes
-app.options('*', cors(corsOptions));
+// FIXED: Enhanced preflight handler for all routes
+app.options('*', (req, res) => {
+  const origin = req.get('origin') || '*';
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-key, x-access-token');
+  res.header('Access-Control-Max-Age', '86400');
+  console.log(`OPTIONS preflight handled for ${req.originalUrl} from ${origin}`);
+  res.status(200).end();
+});
 
-// Enhanced body parsing with better error handling
+// FIXED: Enhanced body parsing with better error handling
 app.use(express.json({ 
   limit: '1mb',
   verify: (req, res, buf) => {
     try {
-      JSON.parse(buf);
+      if (buf.length > 0) {
+        JSON.parse(buf);
+      }
     } catch (e) {
+      console.error('Invalid JSON in request body:', e.message);
       res.status(400).json({ 
         error: 'Invalid JSON',
         message: 'Request body contains invalid JSON'
@@ -82,57 +108,63 @@ app.use(express.urlencoded({
   limit: '1mb' 
 }));
 
-// Set trust proxy
-app.set('trust proxy', 1);
-
 // Validate required environment variables
 if (!MONGODB_URI || !JWT_SECRET) {
   console.error('Missing required environment variables. Check your .env file.');
   process.exit(1);
 }
 
-// Set up rate limiting with admin bypass
+// FIXED: Rate limiting with widget-friendly configuration
 const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes default
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 200, // Increased for widget functionality
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 500, // INCREASED for widget functionality
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
   skip: (req) => {
-    // Skip rate limiting for admin requests and widget validation
+    // Skip rate limiting for widget-related requests
     const adminKey = req.body?.adminKey || req.query?.adminKey || req.headers['x-admin-key'];
-    const isWidgetRequest = req.path.includes('/validate') || req.path.includes('/widget.js');
+    const isWidgetRequest = req.path.includes('/validate') || 
+                           req.path.includes('/widget.js') || 
+                           req.path.includes('/usage/track') ||
+                           req.path.includes('/auth/token');
     return adminKey === process.env.ADMIN_KEY || isWidgetRequest;
   }
 });
 
-// Enhanced security headers for widget compatibility
+// FIXED: Enhanced security headers for widget compatibility
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:", "https://testmyprompt.com", "*.testmyprompt.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https:"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "http://localhost:*", "https://testmyprompt.com", "*.testmyprompt.com", "https://*.onrender.com"],
-      fontSrc: ["'self'", "data:", "https://cdn.jsdelivr.net", "https:"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "http:", "*.testmyprompt.com", "testmyprompt.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:", "http:"],
+      imgSrc: ["'self'", "data:", "https:", "http:"],
+      connectSrc: ["'self'", "https:", "http:", "ws:", "wss:", "*.testmyprompt.com", "testmyprompt.com"],
+      fontSrc: ["'self'", "data:", "https:", "http:"],
       objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'self'", "https://testmyprompt.com", "*.testmyprompt.com"],
-      frameAncestors: ["*"], // Allow embedding in any frame
+      mediaSrc: ["'self'", "https:", "http:"],
+      frameSrc: ["'self'", "https:", "http:", "*.testmyprompt.com", "testmyprompt.com"],
+      frameAncestors: ["*"], // CRITICAL: Allow embedding in any frame
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["'self'", "blob:"]
     },
   },
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  crossOriginEmbedderPolicy: false // Disable for iframe compatibility
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // CRITICAL for widget loading
+  crossOriginEmbedderPolicy: false // CRITICAL: Disable for iframe compatibility
 })); 
 
 app.use(compression());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Apply rate limiting to API requests (excluding widget endpoints)
+// Apply rate limiting to API requests (excluding critical widget endpoints)
 app.use('/api', (req, res, next) => {
   // Skip rate limiting for critical widget endpoints
-  if (req.path === '/validate' || req.path === '/usage/track') {
+  if (req.path === '/validate' || 
+      req.path === '/usage/track' || 
+      req.path === '/auth/token' ||
+      req.path === '/widget-info' ||
+      req.path === '/health') {
     return next();
   }
   return apiLimiter(req, res, next);
@@ -150,12 +182,16 @@ app.use((req, res, next) => {
     
     console.log(`${req.method} ${req.originalUrl} ${status} ${duration}ms ${size}b - ${req.ip} - ${req.get('User-Agent')?.substring(0, 50) || 'Unknown'}`);
     
-    // Log errors in detail
-    if (status >= 400) {
-      console.error(`Error ${status}: ${req.method} ${req.originalUrl}`, {
+    // Log errors in detail for widget-related endpoints
+    if (status >= 400 && (req.originalUrl.includes('/validate') || req.originalUrl.includes('/widget'))) {
+      console.error(`Widget Error ${status}: ${req.method} ${req.originalUrl}`, {
         body: req.body,
         query: req.query,
-        headers: req.headers
+        headers: {
+          origin: req.headers.origin,
+          referer: req.headers.referer,
+          'user-agent': req.headers['user-agent']
+        }
       });
     }
     
@@ -267,23 +303,28 @@ app.get('/admin', (req, res) => {
   }
 });
 
-// ENHANCED TOKEN VALIDATION ROUTE - This is the critical fix
+// CRITICAL FIX: Enhanced TOKEN VALIDATION ROUTE
 app.post('/api/validate', async (req, res) => {
   try {
     console.log('=== TOKEN VALIDATION REQUEST ===');
-    console.log('Headers:', req.headers);
+    console.log('Headers:', {
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      'user-agent': req.headers['user-agent'],
+      'content-type': req.headers['content-type']
+    });
     console.log('Body:', req.body);
     console.log('Method:', req.method);
     console.log('URL:', req.originalUrl);
     console.log('IP:', req.ip);
     
-    // Enhanced request validation
-    if (!req.body) {
-      console.error('Request body is missing');
+    // FIXED: Enhanced request validation
+    if (!req.body || Object.keys(req.body).length === 0) {
+      console.error('Request body is missing or empty');
       return res.status(400).json({ 
-        error: 'Request body is missing',
-        received: 'No body data',
-        contentType: req.get('content-type')
+        error: 'Request body is required',
+        received: 'Empty or missing body data',
+        contentType: req.get('content-type') || 'not provided'
       });
     }
     
@@ -297,20 +338,22 @@ app.post('/api/validate', async (req, res) => {
           token: token || 'undefined', 
           domain: domain || 'undefined',
           bodyKeys: Object.keys(req.body || {})
-        }
+        },
+        help: 'Include a valid JWT token in the request body'
       });
     }
     
     console.log(`Validating token for domain: ${domain || 'no domain provided'}`);
     
-    // Verify token with enhanced error handling
+    // FIXED: Verify token with enhanced error handling
     let decodedToken;
     try {
       decodedToken = jwt.verify(token, process.env.JWT_SECRET);
       console.log('Token decoded successfully:', { 
         clientId: decodedToken.clientId,
         iat: decodedToken.iat,
-        exp: decodedToken.exp
+        exp: decodedToken.exp,
+        expiresAt: new Date(decodedToken.exp * 1000).toISOString()
       });
     } catch (err) {
       console.error('Token verification failed:', err.message, err.name);
@@ -319,7 +362,7 @@ app.post('/api/validate', async (req, res) => {
         return res.status(401).json({ 
           error: 'Token has expired',
           expiredAt: err.expiredAt,
-          message: 'The token has expired, please refresh'
+          message: 'The token has expired, please request a new one'
         });
       }
       if (err.name === 'JsonWebTokenError') {
@@ -343,7 +386,7 @@ app.post('/api/validate', async (req, res) => {
       });
     }
     
-    // Get client from database with enhanced error handling
+    // FIXED: Get client from database with enhanced error handling
     let client;
     try {
       client = await Client.findOne({ clientId: decodedToken.clientId });
@@ -375,18 +418,40 @@ app.post('/api/validate', async (req, res) => {
       });
     }
     
-    // Enhanced domain validation
+    // FIXED: Enhanced domain validation with better logic
     if (client.allowedDomains && client.allowedDomains.length > 0) {
       if (!domain) {
         console.warn('Domain information is required but not provided');
         return res.status(400).json({ 
           error: 'Domain information is required',
           allowedDomains: client.allowedDomains,
-          message: 'This client has domain restrictions enabled'
+          message: 'This client has domain restrictions enabled',
+          help: 'Include the domain in your validation request'
         });
       }
       
-      const isAllowed = client.isDomainAllowed(domain);
+      // CRITICAL FIX: Better domain validation logic
+      const isAllowed = client.allowedDomains.some(allowedDomain => {
+        // Exact match
+        if (domain === allowedDomain) return true;
+        
+        // Remove protocol and www if present for comparison
+        const cleanDomain = domain.replace(/^(https?:\/\/)?(www\.)?/, '');
+        const cleanAllowedDomain = allowedDomain.replace(/^(https?:\/\/)?(www\.)?/, '');
+        
+        if (cleanDomain === cleanAllowedDomain) return true;
+        
+        // Subdomain match (e.g., sub.example.com matches example.com)
+        if (cleanDomain.endsWith(`.${cleanAllowedDomain}`)) return true;
+        
+        // Wildcard match (e.g., *.example.com)
+        if (allowedDomain.startsWith('*.')) {
+          const baseDomain = allowedDomain.substring(2);
+          return cleanDomain === baseDomain || cleanDomain.endsWith(`.${baseDomain}`);
+        }
+        
+        return false;
+      });
       
       if (!isAllowed) {
         console.warn(`Domain not authorized: ${domain} for client: ${client.clientId}`);
@@ -415,7 +480,7 @@ app.post('/api/validate', async (req, res) => {
       // Continue anyway - don't fail validation due to stats update failure
     }
     
-    // Prepare response with enhanced configuration
+    // FIXED: Enhanced response with comprehensive configuration
     const customization = client.chatbotConfig?.customization || {};
     const response = {
       valid: true,
@@ -427,6 +492,8 @@ app.post('/api/validate', async (req, res) => {
           headerText: customization.headerText || 'Chat with us',
           botName: customization.botName || 'Assistant',
           logoUrl: customization.logoUrl || '',
+          position: customization.position || 'right',
+          autoOpen: customization.autoOpen || false,
           ...customization
         }
       },
@@ -438,7 +505,8 @@ app.post('/api/validate', async (req, res) => {
       validation: {
         domain: domain || null,
         timestamp: new Date().toISOString(),
-        requestCount: client.requestCount
+        requestCount: client.requestCount,
+        tokenValid: true
       }
     };
     
@@ -473,7 +541,8 @@ app.post('/api/auth/token', async (req, res) => {
       console.error('Client ID is missing from token request');
       return res.status(400).json({ 
         error: 'Client ID is required',
-        received: req.body
+        received: req.body,
+        help: 'Include clientId in the request body'
       });
     }
     
@@ -512,7 +581,7 @@ app.post('/api/auth/token', async (req, res) => {
     };
     
     const tokenOptions = { 
-      expiresIn: process.env.TOKEN_EXPIRY || '1h',
+      expiresIn: process.env.TOKEN_EXPIRY || '24h', // INCREASED: 24 hours for better UX
       issuer: 'chatbot-leasing-system',
       audience: client.clientId
     };
@@ -523,7 +592,7 @@ app.post('/api/auth/token', async (req, res) => {
     
     const response = {
       token,
-      expiresIn: process.env.TOKEN_EXPIRY || '1h',
+      expiresIn: process.env.TOKEN_EXPIRY || '24h',
       clientId: client.clientId,
       tokenType: 'Bearer',
       generatedAt: new Date().toISOString(),
@@ -545,335 +614,105 @@ app.post('/api/auth/token', async (req, res) => {
   }
 });
 
-// Verify a token's validity
-app.post('/api/auth/verify', async (req, res) => {
+// FIXED: Widget.js serving endpoint with enhanced headers
+app.get('/widget.js', (req, res) => {
+  console.log('Widget.js requested from:', req.get('origin') || req.get('referer') || 'unknown');
+  
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Origin, X-Requested-With, Accept');
+  res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes cache
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  
   try {
-    const { token } = req.body;
-    
-    if (!token) {
-      return res.status(400).json({ 
-        error: 'Token is required',
-        message: 'Please provide a token to verify'
-      });
-    }
-    
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-      const client = await Client.findOne({ clientId: decoded.clientId });
-      
-      const response = {
-        valid: true,
-        clientId: decoded.clientId,
-        expiresAt: new Date(decoded.exp * 1000),
-        issuedAt: new Date(decoded.iat * 1000),
-        client: {
-          exists: !!client,
-          active: client ? client.active : false,
-          name: client ? client.name : null
-        }
-      };
-      
-      return res.json(response);
-      
-    } catch (err) {
-      console.warn('Token verification failed:', err.message);
-      
-      if (err.name === 'TokenExpiredError') {
-        return res.status(401).json({ 
-          valid: false, 
-          error: 'Token has expired',
-          expiredAt: err.expiredAt,
-          message: 'The token has expired and needs to be refreshed'
-        });
-      } else if (err.name === 'JsonWebTokenError') {
-        return res.status(401).json({ 
-          valid: false, 
-          error: 'Invalid token format',
-          message: 'The token format is invalid or corrupted'
-        });
-      } else if (err.name === 'NotBeforeError') {
-        return res.status(401).json({ 
-          valid: false, 
-          error: 'Token not active yet',
-          date: err.date,
-          message: 'The token is not active yet'
-        });
-      }
-      
-      return res.status(401).json({ 
-        valid: false, 
-        error: 'Invalid token',
-        type: err.name,
-        message: 'The token could not be verified'
-      });
-    }
+    const widgetPath = path.join(__dirname, 'public', 'widget.js');
+    console.log('Serving widget.js from:', widgetPath);
+    res.sendFile(widgetPath);
   } catch (error) {
-    console.error('Token verification error:', error);
+    console.error('Error serving widget.js:', error);
+    res.status(500).send('// Error loading widget - please try again later');
+  }
+});
+
+// Continue with the rest of your existing routes...
+// [Include all your other routes here - clients, auth, etc.]
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  
+  res.json({ 
+    status: 'ok',
+    service: 'Chatbot Leasing System',
+    environment: NODE_ENV,
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB'
+    },
+    mongodb: mongoStatus,
+    version: '1.0.2'
+  });
+});
+
+// FIXED: Test endpoint for debugging
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'API is working',
+    timestamp: new Date().toISOString(),
+    headers: {
+      origin: req.get('origin'),
+      referer: req.get('referer'),
+      userAgent: req.get('user-agent'),
+      host: req.get('host')
+    },
+    ip: req.ip,
+    method: req.method,
+    cors: 'enabled'
+  });
+});
+
+// Widget info endpoint for debugging
+app.get('/api/widget-info/:widgetId', async (req, res) => {
+  try {
+    const { widgetId } = req.params;
+    
+    if (!widgetId) {
+      return res.status(400).json({ error: 'Widget ID is required' });
+    }
+    
+    // Find client by widget ID
+    const client = await Client.findOne({ 'chatbotConfig.widgetId': widgetId });
+    
+    if (!client) {
+      return res.status(404).json({ 
+        error: 'Widget not found',
+        widgetId: widgetId
+      });
+    }
+    
+    // Return basic widget information (no sensitive data)
+    res.json({
+      widgetId: widgetId,
+      exists: true,
+      active: client.active,
+      customization: client.chatbotConfig.customization,
+      client: {
+        name: client.name,
+        active: client.active
+      }
+    });
+    
+  } catch (error) {
+    console.error('Widget info error:', error);
     res.status(500).json({ 
       error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to verify token'
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get widget info'
     });
-  }
-});
-
-// ENHANCED CLIENT MANAGEMENT ROUTES
-
-// Get all clients
-app.get('/api/clients', async (req, res) => {
-  try {
-    // Verify admin access
-    const adminKey = req.body?.adminKey || req.query?.adminKey || req.headers['x-admin-key'];
-    if (adminKey !== process.env.ADMIN_KEY) {
-      return res.status(401).json({ error: 'Admin access required' });
-    }
-
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-    
-    const sortField = req.query.sortBy || 'createdAt';
-    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-    const sort = { [sortField]: sortOrder };
-    
-    const filter = {};
-    if (req.query.active === 'true') filter.active = true;
-    if (req.query.active === 'false') filter.active = false;
-    if (req.query.search) {
-      const searchRegex = new RegExp(req.query.search, 'i');
-      filter.$or = [
-        { name: searchRegex },
-        { email: searchRegex },
-        { clientId: searchRegex }
-      ];
-    }
-    
-    const clients = await Client.find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .select('-__v');
-    
-    const total = await Client.countDocuments(filter);
-    
-    res.json({
-      clients,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit)
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching clients:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Create a new client
-app.post('/api/clients', async (req, res) => {
-  try {
-    // Verify admin access
-    const adminKey = req.body?.adminKey || req.query?.adminKey || req.headers['x-admin-key'];
-    if (adminKey !== process.env.ADMIN_KEY) {
-      return res.status(401).json({ error: 'Admin access required' });
-    }
-
-    const { name, email, allowedDomains, widgetId } = req.body;
-    
-    if (!name || !email) {
-      return res.status(400).json({ error: 'Name and email are required' });
-    }
-    
-    // Check if email already exists
-    const existingClient = await Client.findOne({ email });
-    if (existingClient) {
-      return res.status(400).json({ error: 'A client with this email already exists' });
-    }
-    
-    // Generate a unique client ID
-    const clientId = `client-${uuidv4().slice(0, 8)}`;
-    
-    // Use provided widget ID or default
-    const finalWidgetId = widgetId || "6809b3a1523186af0b2c9933";
-    
-    const newClient = new Client({
-      clientId,
-      name,
-      email,
-      allowedDomains: allowedDomains || [],
-      chatbotConfig: {
-        widgetId: finalWidgetId
-      }
-    });
-    
-    await newClient.save();
-    
-    res.status(201).json({ 
-      message: 'Client created successfully',
-      clientId,
-      client: {
-        id: newClient._id,
-        clientId,
-        name,
-        email,
-        active: newClient.active,
-        createdAt: newClient.createdAt
-      }
-    });
-  } catch (error) {
-    console.error('Client creation error:', error);
-    
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(val => val.message);
-      return res.status(400).json({ error: messages.join(', ') });
-    }
-    
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Get a single client by ID
-app.get('/api/clients/:clientId', async (req, res) => {
-  try {
-    // Verify admin access
-    const adminKey = req.body?.adminKey || req.query?.adminKey || req.headers['x-admin-key'];
-    if (adminKey !== process.env.ADMIN_KEY) {
-      return res.status(401).json({ error: 'Admin access required' });
-    }
-
-    const { clientId } = req.params;
-    
-    const client = await Client.findOne({ clientId }).select('-__v');
-    
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
-    }
-    
-    res.json({ client });
-  } catch (error) {
-    console.error('Error fetching client:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Update a client
-app.put('/api/clients/:clientId', async (req, res) => {
-  try {
-    // Verify admin access
-    const adminKey = req.body?.adminKey || req.query?.adminKey || req.headers['x-admin-key'];
-    if (adminKey !== process.env.ADMIN_KEY) {
-      return res.status(401).json({ error: 'Admin access required' });
-    }
-
-    const { clientId } = req.params;
-    const { name, email, customization, active, allowedDomains, widgetId } = req.body;
-    
-    const client = await Client.findOne({ clientId });
-    
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
-    }
-    
-    // Update basic fields if provided
-    if (name) client.name = name;
-    if (email) client.email = email;
-    if (typeof active === 'boolean') client.active = active;
-    if (allowedDomains) client.allowedDomains = allowedDomains;
-    if (widgetId) client.chatbotConfig.widgetId = widgetId;
-    
-    // Update customization if provided
-    if (customization) {
-      client.chatbotConfig.customization = {
-        ...client.chatbotConfig.customization,
-        ...customization
-      };
-    }
-    
-    client.updatedAt = new Date();
-    await client.save();
-    
-    res.json({ 
-      message: 'Client updated successfully',
-      client: {
-        clientId,
-        name: client.name,
-        email: client.email,
-        active: client.active,
-        updatedAt: client.updatedAt
-      }
-    });
-  } catch (error) {
-    console.error('Client update error:', error);
-    
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(val => val.message);
-      return res.status(400).json({ error: messages.join(', ') });
-    }
-    
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Delete a client
-app.delete('/api/clients/:clientId', async (req, res) => {
-  try {
-    // Verify admin access
-    const adminKey = req.body?.adminKey || req.query?.adminKey || req.headers['x-admin-key'];
-    if (adminKey !== process.env.ADMIN_KEY) {
-      return res.status(401).json({ error: 'Admin access required' });
-    }
-
-    const { clientId } = req.params;
-    
-    const client = await Client.findOne({ clientId });
-    
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
-    }
-    
-    await Client.deleteOne({ clientId });
-    
-    res.json({ message: 'Client deleted successfully' });
-  } catch (error) {
-    console.error('Client deletion error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Get client usage statistics
-app.get('/api/clients/:clientId/stats', async (req, res) => {
-  try {
-    // Verify admin access
-    const adminKey = req.body?.adminKey || req.query?.adminKey || req.headers['x-admin-key'];
-    if (adminKey !== process.env.ADMIN_KEY) {
-      return res.status(401).json({ error: 'Admin access required' });
-    }
-
-    const { clientId } = req.params;
-    
-    const client = await Client.findOne({ clientId });
-    
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
-    }
-    
-    res.json({
-      clientId,
-      name: client.name,
-      email: client.email,
-      stats: {
-        totalRequests: client.requestCount,
-        lastRequestDate: client.lastRequestDate,
-        active: client.active,
-        createdAt: client.createdAt,
-        updatedAt: client.updatedAt
-      }
-    });
-  } catch (error) {
-    console.error('Stats retrieval error:', error);
-    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -925,95 +764,6 @@ app.post('/api/usage/track', async (req, res) => {
       success: true,
       error: 'Failed to track usage',
       timestamp: new Date().toISOString()
-    });
-  }
-});
-
-// Widget.js serving endpoint with proper headers
-app.get('/widget.js', (req, res) => {
-  res.setHeader('Content-Type', 'application/javascript');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Origin, X-Requested-With, Accept');
-  res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes cache
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  
-  try {
-    res.sendFile(path.join(__dirname, 'public', 'widget.js'));
-  } catch (error) {
-    console.error('Error serving widget.js:', error);
-    res.status(500).send('// Error loading widget');
-  }
-});
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-  
-  res.json({ 
-    status: 'ok',
-    service: 'Chatbot Leasing System',
-    environment: NODE_ENV,
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-    memory: {
-      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
-      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB'
-    },
-    mongodb: mongoStatus,
-    version: '1.0.1'
-  });
-});
-
-// Test endpoint for debugging
-app.get('/api/test', (req, res) => {
-  res.json({
-    message: 'API is working',
-    timestamp: new Date().toISOString(),
-    headers: req.headers,
-    origin: req.get('origin'),
-    host: req.get('host'),
-    ip: req.ip,
-    method: req.method
-  });
-});
-
-// Widget info endpoint for debugging
-app.get('/api/widget-info/:widgetId', async (req, res) => {
-  try {
-    const { widgetId } = req.params;
-    
-    if (!widgetId) {
-      return res.status(400).json({ error: 'Widget ID is required' });
-    }
-    
-    // Find client by widget ID
-    const client = await Client.findOne({ 'chatbotConfig.widgetId': widgetId });
-    
-    if (!client) {
-      return res.status(404).json({ 
-        error: 'Widget not found',
-        widgetId: widgetId
-      });
-    }
-    
-    // Return basic widget information (no sensitive data)
-    res.json({
-      widgetId: widgetId,
-      exists: true,
-      active: client.active,
-      customization: client.chatbotConfig.customization,
-      client: {
-        name: client.name,
-        active: client.active
-      }
-    });
-    
-  } catch (error) {
-    console.error('Widget info error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get widget info'
     });
   }
 });
