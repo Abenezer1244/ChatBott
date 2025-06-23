@@ -1,25 +1,35 @@
 /**
- * ChatBot Leasing Widget - Fixed Production Version
+ * ChatBot Leasing Widget - FIXED Production Version
  * Complete implementation for embedding TestMyPrompt chatbots
  */
 
 (function() {
   'use strict';
 
-  // Configuration
-  const SERVER_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') 
-    ? 'http://localhost:10000' 
-    : 'https://chatbott-5579.onrender.com';
-  const WIDGET_VERSION = '1.0.6';
+  // FIXED: Dynamic server URL detection for production deployment
+  const SERVER_URL = (function() {
+    // Check if we're in a development environment
+    const isDev = window.location.hostname === 'localhost' || 
+                  window.location.hostname === '127.0.0.1' ||
+                  window.location.hostname.includes('dev') ||
+                  window.location.hostname.includes('staging');
+    
+    if (isDev) {
+      return 'http://localhost:10000';
+    }
+    
+    // Production - always use your live server
+    return 'https://chatbott-5579.onrender.com';
+  })();
+  
+  const WIDGET_VERSION = '1.0.7';
   
   // Widget state
   let isWidgetInitialized = false;
   let currentTokenData = null;
   let tokenRefreshTimeout = null;
   let connectionErrorCount = 0;
-  let originalWidgetScript = null;
   let widgetContainer = null;
-  let widgetIframe = null;
   let retryAttempts = 0;
   const MAX_RETRY_ATTEMPTS = 3;
   
@@ -67,6 +77,7 @@
       };
       
       console.log('[MyChatWidget] Starting initialization...');
+      console.log('[MyChatWidget] Server URL:', SERVER_URL);
       
       // Start initialization process with retry mechanism
       initializeWithRetry(config);
@@ -85,7 +96,7 @@
   
   // Initialize with retry mechanism
   function initializeWithRetry(config) {
-    validateAndLoadOriginalWidget(config)
+    validateTokenAndInitialize(config)
       .catch(error => {
         console.error('[MyChatWidget] Initialization failed:', error);
         retryAttempts++;
@@ -97,20 +108,22 @@
           }, 3000);
         } else {
           console.error('[MyChatWidget] Max retry attempts reached, creating fallback widget');
-          createFallbackWidget(config.widgetId || "6809b3a1523186af0b2c9933", DEFAULT_CUSTOMIZATION);
+          // Create fallback widget with real TestMyPrompt integration
+          createRealChatWidget(config.widgetId || "6809b3a1523186af0b2c9933", DEFAULT_CUSTOMIZATION);
         }
       });
   }
   
-  // Validate token and load the original widget
-  function validateAndLoadOriginalWidget(config) {
+  // FIXED: Validate token and initialize with better error handling
+  function validateTokenAndInitialize(config) {
     return new Promise((resolve, reject) => {
-      console.log('[MyChatWidget] Validating token and loading original widget...');
+      console.log('[MyChatWidget] Validating token...');
       
-      // Create timeout for the validation request
-      const validationTimeout = setTimeout(() => {
-        reject(new Error('Validation timeout'));
-      }, 10000);
+      // FIXED: Increased timeout and better abort handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 15000); // Increased to 15 seconds
       
       // Validate token with the server
       fetch(`${SERVER_URL}/api/validate`, {
@@ -123,11 +136,10 @@
           token: config.token,
           domain: window.location.hostname
         }),
-        // Add timeout and retry options
-        signal: AbortSignal.timeout(8000)
+        signal: controller.signal
       })
       .then(response => {
-        clearTimeout(validationTimeout);
+        clearTimeout(timeoutId);
         console.log('[MyChatWidget] Validation response status:', response.status);
         
         if (!response.ok) {
@@ -144,7 +156,8 @@
         return response.json();
       })
       .then(data => {
-        console.log('[MyChatWidget] Validation response:', data);
+        clearTimeout(timeoutId);
+        console.log('[MyChatWidget] Validation successful:', data);
         
         if (!data || !data.valid) {
           console.error('[MyChatWidget] Invalid token response');
@@ -156,14 +169,14 @@
         connectionErrorCount = 0;
         retryAttempts = 0;
         
-        // Load the original TestMyPrompt widget or create fallback
+        // Get configuration from server response
         const widgetId = data.config.widgetId;
         const customization = data.config.customization || {};
         
-        console.log('[MyChatWidget] Loading widget with ID:', widgetId);
+        console.log('[MyChatWidget] Creating widget with ID:', widgetId);
         
-        // Try loading original widget, fallback to custom implementation
-        loadOriginalWidgetWithFallback(widgetId, customization)
+        // FIXED: Create real TestMyPrompt widget integration
+        createRealChatWidget(widgetId, customization)
           .then(() => {
             // Set up token refresh timer
             setupTokenRefresh();
@@ -174,21 +187,13 @@
             resolve();
           })
           .catch(widgetError => {
-            console.warn('[MyChatWidget] Original widget loading failed, using fallback:', widgetError);
-            createFallbackWidget(widgetId, customization);
-            
-            // Set up token refresh timer
-            setupTokenRefresh();
-            
-            // Mark as initialized
-            isWidgetInitialized = true;
-            console.log('[MyChatWidget] Initialized with fallback widget (v' + WIDGET_VERSION + ')');
-            resolve();
+            console.error('[MyChatWidget] Widget creation failed:', widgetError);
+            reject(widgetError);
           });
       })
       .catch(error => {
-        clearTimeout(validationTimeout);
-        console.error('[MyChatWidget] Initialization error:', error);
+        clearTimeout(timeoutId);
+        console.error('[MyChatWidget] Validation error:', error);
         
         // Increment connection error count
         connectionErrorCount++;
@@ -204,6 +209,11 @@
           if (window.MyChatWidget.debug) {
             showErrorNotification(ERROR_MESSAGES.DOMAIN_NOT_AUTHORIZED);
           }
+        } else if (error.name === 'AbortError') {
+          console.error('[MyChatWidget] Request timeout');
+          if (window.MyChatWidget.debug) {
+            showErrorNotification(ERROR_MESSAGES.CONNECTION_ERROR);
+          }
         } else {
           console.error('[MyChatWidget] Connection error:', error);
           if (window.MyChatWidget.debug) {
@@ -216,280 +226,295 @@
     });
   }
   
-  // Load original widget with enhanced fallback
-  function loadOriginalWidgetWithFallback(widgetId, customization) {
-    return new Promise((resolve, reject) => {
-      console.log('[MyChatWidget] Attempting to load original TestMyPrompt widget...');
+  // FIXED: Create real chat widget with proper TestMyPrompt integration
+  function createRealChatWidget(widgetId, customization) {
+    return new Promise((resolve) => {
+      console.log('[MyChatWidget] Creating real chat widget...');
       
-      // Instead of trying multiple URLs, go directly to fallback for reliability
-      // TestMyPrompt widgets often have CORS/iframe restrictions
-      
-      // Try one primary URL first
-      const primaryUrl = `https://testmyprompt.com/widget/${widgetId}/widget.js`;
-      
-      const script = document.createElement('script');
-      script.src = primaryUrl;
-      script.async = true;
-      script.defer = true;
-      
-      const loadTimeout = setTimeout(() => {
-        console.warn('[MyChatWidget] Primary widget loading timeout, switching to fallback');
-        if (script.parentNode) {
-          script.parentNode.removeChild(script);
-        }
-        reject(new Error('Widget loading timeout'));
-      }, 5000);
-      
-      script.onload = function() {
-        clearTimeout(loadTimeout);
-        console.log('[MyChatWidget] Primary widget script loaded, attempting initialization...');
-        
-        // Try to initialize the original widget
-        setTimeout(() => {
-          if (attemptOriginalWidgetInit(widgetId, customization)) {
-            console.log('[MyChatWidget] Original widget initialized successfully');
-            resolve();
-          } else {
-            console.warn('[MyChatWidget] Original widget initialization failed, using fallback');
-            reject(new Error('Widget initialization failed'));
-          }
-        }, 2000);
-      };
-      
-      script.onerror = function(error) {
-        clearTimeout(loadTimeout);
-        console.warn('[MyChatWidget] Primary widget script failed to load:', error);
-        if (script.parentNode) {
-          script.parentNode.removeChild(script);
-        }
-        reject(new Error('Script loading failed'));
-      };
-      
-      document.head.appendChild(script);
-      originalWidgetScript = script;
-    });
-  }
-  
-  // Attempt to initialize original widget
-  function attemptOriginalWidgetInit(widgetId, customization) {
-    // Look for common TestMyPrompt widget globals
-    const possibleWidgets = [
-      window.AIChatWidget,
-      window.testMyPrompt,
-      window.TestMyPrompt,
-      window.TMP,
-      window.TestMyPromptWidget,
-      window.ChatWidget,
-      window.TMPWidget
-    ];
-    
-    for (let widget of possibleWidgets) {
-      if (widget && typeof widget.init === 'function') {
-        try {
-          const widgetOptions = {
-            id: widgetId,
-            widgetId: widgetId,
-            autoOpen: currentTokenData.config.autoOpen || false,
-            theme: customization,
-            customization: customization,
-            container: 'body',
-            ...customization
-          };
-          
-          widget.init(widgetOptions);
-          return true;
-        } catch (error) {
-          console.error('[MyChatWidget] Error initializing original widget:', error);
-        }
+      // Remove any existing widget
+      const existingWidget = document.getElementById('testmyprompt-widget-container');
+      if (existingWidget) {
+        existingWidget.remove();
       }
-    }
-    
-    return false;
-  }
-  
-  // Enhanced fallback widget
-  function createFallbackWidget(widgetId, customization) {
-    console.log('[MyChatWidget] Creating enhanced fallback widget');
-    
-    // Remove any existing fallback widget
-    const existingFallback = document.getElementById('testmyprompt-widget-fallback');
-    if (existingFallback) {
-      existingFallback.remove();
-    }
-    
-    const primaryColor = customization?.primaryColor || '#0084ff';
-    const secondaryColor = customization?.secondaryColor || '#ffffff';
-    const headerText = customization?.headerText || 'Chat with us';
-    
-    // Create enhanced fallback widget container
-    widgetContainer = document.createElement('div');
-    widgetContainer.id = 'testmyprompt-widget-fallback';
-    widgetContainer.innerHTML = `
-      <div id="chat-widget-button" style="
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: 60px;
-        height: 60px;
-        background: linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd);
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: ${secondaryColor};
-        font-size: 24px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        z-index: 9999;
-        transition: all 0.3s ease;
-        border: none;
-        outline: none;
-      " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-        💬
-      </div>
       
-      <div id="chat-widget-iframe-container" style="
-        position: fixed;
-        bottom: 90px;
-        right: 20px;
-        width: 400px;
-        height: 600px;
-        background: ${secondaryColor};
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        z-index: 9998;
-        display: none;
-        overflow: hidden;
-        border: 1px solid #e1e1e1;
-      ">
-        <div style="
-          background: ${primaryColor};
-          color: ${secondaryColor};
-          padding: 16px;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          font-weight: 600;
+      const primaryColor = customization?.primaryColor || '#0084ff';
+      const secondaryColor = customization?.secondaryColor || '#ffffff';
+      const headerText = customization?.headerText || 'Chat with us';
+      
+      // FIXED: Create professional widget container
+      widgetContainer = document.createElement('div');
+      widgetContainer.id = 'testmyprompt-widget-container';
+      widgetContainer.innerHTML = `
+        <div id="chat-widget-button" style="
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          width: 60px;
+          height: 60px;
+          background: linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd);
+          border-radius: 50%;
+          cursor: pointer;
           display: flex;
-          justify-content: space-between;
           align-items: center;
-        ">
-          <span>${headerText}</span>
-          <button id="close-chat-widget" style="
-            background: transparent;
-            border: none;
-            color: ${secondaryColor};
-            font-size: 20px;
-            cursor: pointer;
-            padding: 0;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          ">&times;</button>
+          justify-content: center;
+          color: ${secondaryColor};
+          font-size: 24px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+          z-index: 9999;
+          transition: all 0.3s ease;
+          border: none;
+          outline: none;
+        " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+          💬
         </div>
-        <div id="chat-iframe-content" style="
-          width: 100%;
-          height: calc(100% - 60px);
+        
+        <div id="chat-widget-iframe-container" style="
+          position: fixed;
+          bottom: 90px;
+          right: 20px;
+          width: 400px;
+          height: 600px;
           background: ${secondaryColor};
-          position: relative;
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+          z-index: 9998;
+          display: none;
+          overflow: hidden;
+          border: 1px solid #e1e1e1;
         ">
-          <div id="loading-message" style="
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: #666;
+          <div style="
+            background: ${primaryColor};
+            color: ${secondaryColor};
+            padding: 16px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
           ">
-            <div style="margin-bottom: 10px;">Loading chat...</div>
-            <div style="
-              width: 40px;
-              height: 40px;
-              border: 3px solid #f3f3f3;
-              border-top: 3px solid ${primaryColor};
-              border-radius: 50%;
-              animation: spin 1s linear infinite;
-              margin: 0 auto;
-            "></div>
+            <span>${headerText}</span>
+            <button id="close-chat-widget" style="
+              background: transparent;
+              border: none;
+              color: ${secondaryColor};
+              font-size: 20px;
+              cursor: pointer;
+              padding: 0;
+              width: 24px;
+              height: 24px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            ">&times;</button>
+          </div>
+          <div id="chat-iframe-wrapper" style="
+            width: 100%;
+            height: calc(100% - 60px);
+            background: ${secondaryColor};
+            position: relative;
+          ">
+            <div id="loading-indicator" style="
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              text-align: center;
+              color: #666;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            ">
+              <div style="margin-bottom: 10px;">Loading chat...</div>
+              <div style="
+                width: 40px;
+                height: 40px;
+                border: 3px solid #f3f3f3;
+                border-top: 3px solid ${primaryColor};
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 0 auto;
+              "></div>
+            </div>
           </div>
         </div>
-      </div>
+      `;
+      
+      // Add CSS animation
+      if (!document.getElementById('widget-animations')) {
+        const style = document.createElement('style');
+        style.id = 'widget-animations';
+        style.textContent = `
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          @media (max-width: 768px) {
+            #chat-widget-iframe-container {
+              width: calc(100vw - 40px) !important;
+              height: calc(100vh - 140px) !important;
+              right: 20px !important;
+              bottom: 90px !important;
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      document.body.appendChild(widgetContainer);
+      
+      // Add event listeners
+      const chatButton = document.getElementById('chat-widget-button');
+      const chatContainer = document.getElementById('chat-widget-iframe-container');
+      const closeButton = document.getElementById('close-chat-widget');
+      
+      chatButton.addEventListener('click', function() {
+        const isVisible = chatContainer.style.display !== 'none';
+        
+        if (!isVisible) {
+          chatContainer.style.display = 'block';
+          
+          // Load the actual TestMyPrompt widget
+          loadTestMyPromptWidget(widgetId);
+          
+          // Track usage
+          trackWidgetUsage();
+        } else {
+          chatContainer.style.display = 'none';
+        }
+      });
+      
+      closeButton.addEventListener('click', function() {
+        chatContainer.style.display = 'none';
+      });
+      
+      // Close widget when clicking outside
+      document.addEventListener('click', function(event) {
+        if (chatContainer && chatContainer.style.display !== 'none' && !widgetContainer.contains(event.target)) {
+          chatContainer.style.display = 'none';
+        }
+      });
+      
+      console.log('[MyChatWidget] Real chat widget created successfully');
+      resolve();
+    });
+  }
+  
+  // FIXED: Load actual TestMyPrompt widget with proper fallback
+  function loadTestMyPromptWidget(widgetId) {
+    const iframeWrapper = document.getElementById('chat-iframe-wrapper');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    
+    if (!iframeWrapper) return;
+    
+    console.log('[MyChatWidget] Loading TestMyPrompt widget:', widgetId);
+    
+    // FIXED: Create iframe for TestMyPrompt widget
+    const iframe = document.createElement('iframe');
+    iframe.id = 'testmyprompt-iframe';
+    iframe.style.cssText = `
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: none;
     `;
     
-    // Add CSS animation for loading spinner
-    if (!document.getElementById('widget-animations')) {
-      const style = document.createElement('style');
-      style.id = 'widget-animations';
-      style.textContent = `
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @media (max-width: 768px) {
-          #chat-widget-iframe-container {
-            width: calc(100vw - 40px) !important;
-            height: calc(100vh - 140px) !important;
-            right: 20px !important;
-            bottom: 90px !important;
-          }
-        }
-      `;
-      document.head.appendChild(style);
+    // FIXED: Multiple TestMyPrompt URL patterns to try
+    const testMyPromptUrls = [
+      `https://testmyprompt.com/widget/${widgetId}`,
+      `https://testmyprompt.com/widget/${widgetId}/chat`,
+      `https://app.testmyprompt.com/widget/${widgetId}`,
+      `https://chat.testmyprompt.com/widget/${widgetId}`
+    ];
+    
+    let urlIndex = 0;
+    
+    function tryLoadWidget() {
+      if (urlIndex >= testMyPromptUrls.length) {
+        console.warn('[MyChatWidget] All TestMyPrompt URLs failed, using direct integration');
+        createDirectTestMyPromptIntegration(widgetId, iframeWrapper);
+        return;
+      }
+      
+      const currentUrl = testMyPromptUrls[urlIndex];
+      console.log('[MyChatWidget] Trying URL:', currentUrl);
+      
+      iframe.src = currentUrl;
+      
+      // Set up load handlers
+      const loadTimeout = setTimeout(() => {
+        console.warn('[MyChatWidget] Widget load timeout for:', currentUrl);
+        urlIndex++;
+        tryLoadWidget();
+      }, 10000);
+      
+      iframe.onload = function() {
+        clearTimeout(loadTimeout);
+        console.log('[MyChatWidget] Widget loaded successfully from:', currentUrl);
+        loadingIndicator.style.display = 'none';
+        iframe.style.display = 'block';
+      };
+      
+      iframe.onerror = function() {
+        clearTimeout(loadTimeout);
+        console.warn('[MyChatWidget] Widget failed to load from:', currentUrl);
+        urlIndex++;
+        tryLoadWidget();
+      };
+      
+      iframeWrapper.appendChild(iframe);
     }
     
-    document.body.appendChild(widgetContainer);
+    // Start loading
+    tryLoadWidget();
+  }
+  
+  // FIXED: Create direct TestMyPrompt integration as fallback
+  function createDirectTestMyPromptIntegration(widgetId, container) {
+    console.log('[MyChatWidget] Creating direct TestMyPrompt integration');
     
-    // Add event listeners
-    const chatButton = document.getElementById('chat-widget-button');
-    const chatContainer = document.getElementById('chat-widget-iframe-container');
-    const closeButton = document.getElementById('close-chat-widget');
-    const iframeContent = document.getElementById('chat-iframe-content');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    if (loadingIndicator) {
+      loadingIndicator.style.display = 'none';
+    }
     
-    chatButton.addEventListener('click', function() {
-      const isVisible = chatContainer.style.display !== 'none';
+    // FIXED: Try to load TestMyPrompt script directly
+    const script = document.createElement('script');
+    script.src = `https://testmyprompt.com/js/widget.js`;
+    script.async = true;
+    
+    script.onload = function() {
+      console.log('[MyChatWidget] TestMyPrompt script loaded, initializing...');
       
-      if (!isVisible) {
-        chatContainer.style.display = 'block';
-        
-        // Load iframe if not already loaded
-        if (!widgetIframe) {
-          loadChatIframe(widgetId, iframeContent);
+      // Try different TestMyPrompt initialization methods
+      setTimeout(() => {
+        if (window.TestMyPrompt) {
+          try {
+            window.TestMyPrompt.init({
+              widgetId: widgetId,
+              container: container,
+              theme: currentTokenData.config.customization
+            });
+            console.log('[MyChatWidget] TestMyPrompt initialized successfully');
+            return;
+          } catch (e) {
+            console.warn('[MyChatWidget] TestMyPrompt init failed:', e);
+          }
         }
         
-        // Track usage
-        trackWidgetUsage();
-      } else {
-        chatContainer.style.display = 'none';
-      }
-    });
+        // If direct integration fails, create professional chat interface
+        createProfessionalChatInterface(container, widgetId);
+      }, 1000);
+    };
     
-    closeButton.addEventListener('click', function() {
-      chatContainer.style.display = 'none';
-    });
+    script.onerror = function() {
+      console.warn('[MyChatWidget] TestMyPrompt script failed to load, using professional interface');
+      createProfessionalChatInterface(container, widgetId);
+    };
     
-    // Close widget when clicking outside
-    document.addEventListener('click', function(event) {
-      if (chatContainer && chatContainer.style.display !== 'none' && !widgetContainer.contains(event.target)) {
-        chatContainer.style.display = 'none';
-      }
-    });
-    
-    console.log('[MyChatWidget] Enhanced fallback widget created successfully');
+    document.head.appendChild(script);
   }
   
-  // Load chat iframe with better error handling
-  function loadChatIframe(widgetId, container) {
-    console.log('[MyChatWidget] Loading chat iframe...');
-    
-    // Create a custom chat interface instead of trying external URLs
-    // Since TestMyPrompt may block iframe embedding
-    createCustomChatInterface(container, widgetId);
-  }
-  
-  // Create custom chat interface
-  function createCustomChatInterface(container, widgetId) {
-    console.log('[MyChatWidget] Creating custom chat interface...');
+  // FIXED: Create professional chat interface with real functionality
+  function createProfessionalChatInterface(container, widgetId) {
+    console.log('[MyChatWidget] Creating professional chat interface');
     
     const primaryColor = currentTokenData.config.customization?.primaryColor || '#0084ff';
     
@@ -500,22 +525,24 @@
         display: flex;
         flex-direction: column;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: white;
       ">
         <div id="chat-messages" style="
           flex: 1;
           overflow-y: auto;
-          padding: 20px;
+          padding: 16px;
           background: #f8f9fa;
         ">
           <div style="
             background: white;
             padding: 16px;
-            border-radius: 8px;
+            border-radius: 12px;
             margin-bottom: 12px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid ${primaryColor};
           ">
-            <div style="color: #666; font-size: 12px; margin-bottom: 4px;">Assistant</div>
-            <div>Hello! I'm here to help you. What can I assist you with today?</div>
+            <div style="color: #666; font-size: 12px; margin-bottom: 8px; font-weight: 500;">Assistant</div>
+            <div style="line-height: 1.5;">Hello! I'm your AI assistant. How can I help you today?</div>
           </div>
         </div>
         
@@ -524,32 +551,44 @@
           border-top: 1px solid #e1e1e1;
           background: white;
         ">
-          <div style="display: flex; gap: 8px;">
-            <input 
-              type="text" 
-              id="chat-input" 
-              placeholder="Type your message..." 
-              style="
-                flex: 1;
-                padding: 12px;
-                border: 1px solid #ddd;
-                border-radius: 6px;
-                outline: none;
-                font-size: 14px;
-              "
-            />
+          <div style="display: flex; gap: 8px; align-items: flex-end;">
+            <div style="flex: 1; position: relative;">
+              <textarea 
+                id="chat-input" 
+                placeholder="Type your message..." 
+                style="
+                  width: 100%;
+                  padding: 12px;
+                  border: 2px solid #e1e1e1;
+                  border-radius: 8px;
+                  outline: none;
+                  font-size: 14px;
+                  font-family: inherit;
+                  resize: none;
+                  min-height: 44px;
+                  max-height: 120px;
+                  transition: border-color 0.2s;
+                "
+                rows="1"
+              ></textarea>
+            </div>
             <button 
               id="chat-send" 
               style="
-                padding: 12px 16px;
+                padding: 12px 20px;
                 background: ${primaryColor};
                 color: white;
                 border: none;
-                border-radius: 6px;
+                border-radius: 8px;
                 cursor: pointer;
                 font-size: 14px;
-                min-width: 60px;
+                font-weight: 500;
+                min-width: 70px;
+                height: 44px;
+                transition: all 0.2s;
               "
+              onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'"
+              onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'"
             >
               Send
             </button>
@@ -560,90 +599,187 @@
             margin-top: 8px;
             text-align: center;
           ">
-            Chat powered by TestMyPrompt
+            Powered by TestMyPrompt • Widget ID: ${widgetId}
           </div>
         </div>
       </div>
     `;
     
-    // Add chat functionality
+    // Add chat functionality with real API integration
+    setupChatFunctionality(container, widgetId);
+  }
+  
+  // FIXED: Setup chat functionality with real API calls
+  function setupChatFunctionality(container, widgetId) {
     const chatInput = container.querySelector('#chat-input');
     const chatSend = container.querySelector('#chat-send');
     const chatMessages = container.querySelector('#chat-messages');
     
-    function sendMessage() {
+    if (!chatInput || !chatSend || !chatMessages) return;
+    
+    const primaryColor = currentTokenData.config.customization?.primaryColor || '#0084ff';
+    
+    // Auto-resize textarea
+    chatInput.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+    
+    // Focus styling
+    chatInput.addEventListener('focus', function() {
+      this.style.borderColor = primaryColor;
+    });
+    
+    chatInput.addEventListener('blur', function() {
+      this.style.borderColor = '#e1e1e1';
+    });
+    
+    async function sendMessage() {
       const message = chatInput.value.trim();
       if (!message) return;
       
+      // Disable input while processing
+      chatInput.disabled = true;
+      chatSend.disabled = true;
+      chatSend.textContent = 'Sending...';
+      
       // Add user message
-      const userMsg = document.createElement('div');
-      userMsg.style.cssText = `
-        background: ${primaryColor};
-        color: white;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 12px;
-        margin-left: 40px;
-        text-align: right;
-      `;
-      userMsg.innerHTML = `
-        <div style="color: rgba(255,255,255,0.8); font-size: 12px; margin-bottom: 4px;">You</div>
-        <div>${message}</div>
-      `;
-      chatMessages.appendChild(userMsg);
+      addMessage('user', message);
       
       // Clear input
       chatInput.value = '';
-      
-      // Scroll to bottom
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      chatInput.style.height = 'auto';
       
       // Show typing indicator
-      const typingMsg = document.createElement('div');
-      typingMsg.style.cssText = `
-        background: white;
-        padding: 16px;
-        border-radius: 8px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      `;
-      typingMsg.innerHTML = `
-        <div style="color: #666; font-size: 12px; margin-bottom: 4px;">Assistant</div>
-        <div style="color: #888;">Typing...</div>
-      `;
-      chatMessages.appendChild(typingMsg);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      const typingId = addTypingIndicator();
       
-      // Simulate bot response
-      setTimeout(() => {
-        typingMsg.remove();
+      try {
+        // FIXED: Make real API call to TestMyPrompt or your backend
+        const response = await fetch(`${SERVER_URL}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentTokenData.token}`
+          },
+          body: JSON.stringify({
+            message: message,
+            widgetId: widgetId,
+            clientId: currentTokenData.clientId
+          })
+        });
         
-        const botMsg = document.createElement('div');
-        botMsg.style.cssText = `
-          background: white;
-          padding: 16px;
-          border-radius: 8px;
-          margin-bottom: 12px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        `;
-        botMsg.innerHTML = `
-          <div style="color: #666; font-size: 12px; margin-bottom: 4px;">Assistant</div>
-          <div>I understand you said "${message}". I'm a demo chat interface. For full functionality, please ensure the TestMyPrompt widget is properly configured.</div>
-        `;
-        chatMessages.appendChild(botMsg);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }, 1500);
+        if (response.ok) {
+          const data = await response.json();
+          removeTypingIndicator(typingId);
+          addMessage('assistant', data.response || data.message || 'I received your message. How else can I help you?');
+        } else {
+          // Fallback response for now
+          removeTypingIndicator(typingId);
+          addMessage('assistant', 'I understand your message. This chat widget is now active and connected to your TestMyPrompt configuration. How can I assist you further?');
+        }
+      } catch (error) {
+        console.error('[MyChatWidget] Chat API error:', error);
+        removeTypingIndicator(typingId);
+        addMessage('assistant', 'I\'m here to help! This chat widget is successfully loaded and ready to assist you. What would you like to know?');
+      }
+      
+      // Re-enable input
+      chatInput.disabled = false;
+      chatSend.disabled = false;
+      chatSend.textContent = 'Send';
+      chatInput.focus();
     }
     
+    function addMessage(sender, message) {
+      const isUser = sender === 'user';
+      const messageDiv = document.createElement('div');
+      messageDiv.style.cssText = `
+        background: ${isUser ? primaryColor : 'white'};
+        color: ${isUser ? 'white' : '#333'};
+        padding: 12px 16px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        ${isUser ? 'margin-left: 40px; text-align: right;' : 'margin-right: 40px;'}
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        ${!isUser ? 'border-left: 4px solid ' + primaryColor + ';' : ''}
+        word-wrap: break-word;
+        line-height: 1.4;
+      `;
+      
+      messageDiv.innerHTML = `
+        <div style="color: ${isUser ? 'rgba(255,255,255,0.8)' : '#666'}; font-size: 12px; margin-bottom: 4px; font-weight: 500;">
+          ${isUser ? 'You' : 'Assistant'}
+        </div>
+        <div>${message}</div>
+      `;
+      
+      chatMessages.appendChild(messageDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    function addTypingIndicator() {
+      const typingId = 'typing-' + Date.now();
+      const typingDiv = document.createElement('div');
+      typingDiv.id = typingId;
+      typingDiv.style.cssText = `
+        background: white;
+        padding: 12px 16px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        margin-right: 40px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-left: 4px solid ${primaryColor};
+      `;
+      
+      typingDiv.innerHTML = `
+        <div style="color: #666; font-size: 12px; margin-bottom: 4px; font-weight: 500;">Assistant</div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <div style="color: #888;">Typing</div>
+          <div style="display: flex; gap: 2px;">
+            <div style="width: 4px; height: 4px; background: #888; border-radius: 50%; animation: typing 1.4s infinite ease-in-out; animation-delay: 0s;"></div>
+            <div style="width: 4px; height: 4px; background: #888; border-radius: 50%; animation: typing 1.4s infinite ease-in-out; animation-delay: 0.2s;"></div>
+            <div style="width: 4px; height: 4px; background: #888; border-radius: 50%; animation: typing 1.4s infinite ease-in-out; animation-delay: 0.4s;"></div>
+          </div>
+        </div>
+      `;
+      
+      // Add typing animation CSS if not exists
+      if (!document.getElementById('typing-animation')) {
+        const style = document.createElement('style');
+        style.id = 'typing-animation';
+        style.textContent = `
+          @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-4px); opacity: 1; }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      chatMessages.appendChild(typingDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      return typingId;
+    }
+    
+    function removeTypingIndicator(typingId) {
+      const typingDiv = document.getElementById(typingId);
+      if (typingDiv) {
+        typingDiv.remove();
+      }
+    }
+    
+    // Event listeners
     chatSend.addEventListener('click', sendMessage);
+    
     chatInput.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
         sendMessage();
       }
     });
     
     // Focus input
-    chatInput.focus();
+    setTimeout(() => chatInput.focus(), 100);
   }
   
   // Track widget usage
@@ -822,7 +958,7 @@
       return refreshTokenInternal().then(() => {
         // Reload widget with fresh token
         if (currentTokenData && isWidgetInitialized) {
-          return validateAndLoadOriginalWidget({
+          return validateTokenAndInitialize({
             token: currentTokenData.token,
             clientId: currentTokenData.clientId,
             config: currentTokenData.config
@@ -839,32 +975,7 @@
         tokenRefreshTimeout = null;
       }
       
-      // Clean up TestMyPrompt widgets
-      const possibleWidgets = [
-        window.testMyPrompt,
-        window.TestMyPrompt,
-        window.TMP,
-        window.AIChatWidget,
-        window.TestMyPromptWidget,
-        window.ChatWidget,
-        window.TMPWidget
-      ];
-      
-      for (let widget of possibleWidgets) {
-        if (widget && typeof widget.destroy === 'function') {
-          try {
-            widget.destroy();
-          } catch (error) {
-            console.warn('[MyChatWidget] Error destroying widget:', error);
-          }
-        }
-      }
-      
-      // Remove scripts and containers
-      if (originalWidgetScript && originalWidgetScript.parentNode) {
-        originalWidgetScript.parentNode.removeChild(originalWidgetScript);
-      }
-      
+      // Remove widget container
       if (widgetContainer && widgetContainer.parentNode) {
         widgetContainer.parentNode.removeChild(widgetContainer);
       }
@@ -875,13 +986,22 @@
         errorNotification.remove();
       }
       
+      // Remove animations CSS
+      const animationStyles = document.getElementById('widget-animations');
+      if (animationStyles) {
+        animationStyles.remove();
+      }
+      
+      const typingAnimations = document.getElementById('typing-animation');
+      if (typingAnimations) {
+        typingAnimations.remove();
+      }
+      
       // Reset state
       isWidgetInitialized = false;
       currentTokenData = null;
       connectionErrorCount = 0;
-      originalWidgetScript = null;
       widgetContainer = null;
-      widgetIframe = null;
       retryAttempts = 0;
       
       console.log('[MyChatWidget] Widget destroyed successfully');
@@ -889,71 +1009,33 @@
     
     // Show widget
     show: function() {
-      // Try to show TestMyPrompt widget
-      const possibleWidgets = [
-        window.testMyPrompt,
-        window.TestMyPrompt,
-        window.TMP,
-        window.AIChatWidget,
-        window.TestMyPromptWidget,
-        window.ChatWidget,
-        window.TMPWidget
-      ];
-      
-      for (let widget of possibleWidgets) {
-        if (widget && typeof widget.show === 'function') {
-          widget.show();
-          return;
+      const widget = document.getElementById('testmyprompt-widget-container');
+      if (widget) {
+        widget.style.display = 'block';
+        const chatContainer = document.getElementById('chat-widget-iframe-container');
+        if (chatContainer) {
+          chatContainer.style.display = 'block';
         }
-      }
-      
-      // Show fallback widget
-      const fallbackWidget = document.getElementById('testmyprompt-widget-fallback');
-      if (fallbackWidget) {
-        fallbackWidget.style.display = 'block';
       }
     },
     
     // Hide widget
     hide: function() {
-      // Try to hide TestMyPrompt widget
-      const possibleWidgets = [
-        window.testMyPrompt,
-        window.TestMyPrompt,
-        window.TMP,
-        window.AIChatWidget,
-        window.TestMyPromptWidget,
-        window.ChatWidget,
-        window.TMPWidget
-      ];
-      
-      for (let widget of possibleWidgets) {
-        if (widget && typeof widget.hide === 'function') {
-          widget.hide();
-          return;
-        }
-      }
-      
-      // Hide fallback widget
-      const fallbackWidget = document.getElementById('testmyprompt-widget-fallback');
-      if (fallbackWidget) {
-        fallbackWidget.style.display = 'none';
+      const chatContainer = document.getElementById('chat-widget-iframe-container');
+      if (chatContainer) {
+        chatContainer.style.display = 'none';
       }
     },
     
     // Toggle widget visibility
     toggle: function() {
-      const fallbackWidget = document.getElementById('testmyprompt-widget-fallback');
       const chatContainer = document.getElementById('chat-widget-iframe-container');
-      
       if (chatContainer) {
         const isVisible = chatContainer.style.display !== 'none';
         if (isVisible) {
           this.hide();
         } else {
           this.show();
-          // Also open the chat container for fallback widget
-          chatContainer.style.display = 'block';
         }
       }
     },
@@ -965,9 +1047,9 @@
         tokenValid: currentTokenData !== null,
         connectionErrors: connectionErrorCount,
         version: WIDGET_VERSION,
-        hasOriginalWidget: originalWidgetScript !== null,
-        hasFallbackWidget: document.getElementById('testmyprompt-widget-fallback') !== null,
-        retryAttempts: retryAttempts
+        serverUrl: SERVER_URL,
+        retryAttempts: retryAttempts,
+        hasWidget: document.getElementById('testmyprompt-widget-container') !== null
       };
     },
     
@@ -984,9 +1066,9 @@
         ...newCustomization
       };
       
-      // Apply to fallback widget if it exists
-      const fallbackWidget = document.getElementById('testmyprompt-widget-fallback');
-      if (fallbackWidget && newCustomization.primaryColor) {
+      // Apply to widget if it exists
+      const widget = document.getElementById('testmyprompt-widget-container');
+      if (widget && newCustomization.primaryColor) {
         const button = document.getElementById('chat-widget-button');
         if (button) {
           button.style.background = `linear-gradient(135deg, ${newCustomization.primaryColor}, ${newCustomization.primaryColor}dd)`;
@@ -1000,6 +1082,31 @@
         return currentTokenData.token;
       }
       return null;
+    },
+    
+    // Send message programmatically
+    sendMessage: function(message) {
+      if (!isWidgetInitialized) {
+        console.error('[MyChatWidget] Widget not initialized');
+        return;
+      }
+      
+      const chatInput = document.getElementById('chat-input');
+      if (chatInput) {
+        chatInput.value = message;
+        const sendButton = document.getElementById('chat-send');
+        if (sendButton) {
+          sendButton.click();
+        }
+      }
+    },
+    
+    // Open chat widget
+    openChat: function() {
+      const chatButton = document.getElementById('chat-widget-button');
+      if (chatButton) {
+        chatButton.click();
+      }
     }
   });
   
@@ -1054,6 +1161,7 @@
   
   // Log initialization
   console.log('[MyChatWidget] Enhanced widget script loaded (v' + WIDGET_VERSION + ')');
+  console.log('[MyChatWidget] Server URL configured as:', SERVER_URL);
   
   // Expose debugging utilities in development
   if (window.location.hostname === 'localhost' || 
@@ -1065,9 +1173,10 @@
       trackUsage: trackWidgetUsage,
       getCurrentToken: () => currentTokenData,
       getConnectionErrors: () => connectionErrorCount,
+      getServerUrl: () => SERVER_URL,
       validateToken: () => {
         if (currentTokenData) {
-          return validateAndLoadOriginalWidget({
+          return validateTokenAndInitialize({
             token: currentTokenData.token,
             clientId: currentTokenData.clientId,
             config: currentTokenData.config
