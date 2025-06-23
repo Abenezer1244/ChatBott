@@ -1,4 +1,4 @@
-// Token validation and widget configuration routes
+// Token validation and widget configuration routes - FIXED VERSION
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
@@ -12,96 +12,224 @@ const Client = require('../models/Client');
 router.post('/validate', async (req, res) => {
   try {
     // Enhanced logging for debugging
-    console.log('Validate route called');
-    console.log('Request headers:', req.headers);
-    console.log('Request body:', req.body);
+    console.log('=== VALIDATE ROUTE CALLED ===');
     console.log('Request method:', req.method);
     console.log('Request URL:', req.originalUrl);
+    console.log('Request headers:', {
+      'content-type': req.headers['content-type'],
+      'origin': req.headers.origin,
+      'user-agent': req.headers['user-agent']?.substring(0, 100),
+      'accept': req.headers.accept
+    });
+    console.log('Request body:', req.body);
+    console.log('Body type:', typeof req.body);
+    console.log('Body keys:', req.body ? Object.keys(req.body) : 'no body');
     
-    // Handle case where req.body might be undefined
+    // Enhanced CORS headers - Set immediately
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+    res.header('Access-Control-Max-Age', '86400');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      console.log('Handling OPTIONS preflight request');
+      return res.status(200).end();
+    }
+    
+    // Enhanced body validation
     if (!req.body) {
-      console.error('Request body is missing');
+      console.error('Request body is completely missing');
       return res.status(400).json({ 
-        error: 'Request body is missing',
-        received: 'No body data'
+        error: 'Request body is required',
+        received: 'No body data',
+        contentType: req.get('content-type') || 'not provided',
+        debug: {
+          method: req.method,
+          url: req.originalUrl,
+          hasBody: !!req.body
+        }
+      });
+    }
+    
+    // Check if body is empty object
+    if (typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+      console.error('Request body is an empty object');
+      return res.status(400).json({ 
+        error: 'Request body cannot be empty',
+        received: 'Empty object',
+        contentType: req.get('content-type') || 'not provided',
+        debug: {
+          bodyType: typeof req.body,
+          bodyKeys: Object.keys(req.body),
+          bodyString: JSON.stringify(req.body)
+        }
       });
     }
     
     const { token, domain } = req.body;
     
     if (!token) {
-      console.error('Token is missing from request');
+      console.error('Token is missing from request body');
       return res.status(400).json({ 
         error: 'Token is required',
-        received: { token: token || 'undefined', domain: domain || 'undefined' }
+        received: { 
+          token: token || 'undefined', 
+          domain: domain || 'undefined',
+          bodyKeys: Object.keys(req.body || {}),
+          bodyType: typeof req.body
+        },
+        help: 'Include a valid JWT token in the request body as: {"token": "your_token", "domain": "your_domain"}'
       });
     }
     
-    console.log(`Validating token for domain: ${domain}`);
+    console.log(`Validating token for domain: ${domain || 'no domain provided'}`);
     
-    // Verify token
+    // Verify token with enhanced error handling
     let decodedToken;
     try {
       decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('Token decoded successfully:', { clientId: decodedToken.clientId });
+      console.log('Token decoded successfully:', { 
+        clientId: decodedToken.clientId,
+        iat: decodedToken.iat ? new Date(decodedToken.iat * 1000).toISOString() : 'not set',
+        exp: decodedToken.exp ? new Date(decodedToken.exp * 1000).toISOString() : 'not set',
+        audience: decodedToken.aud,
+        issuer: decodedToken.iss
+      });
     } catch (err) {
-      console.error('Token verification failed:', err.message);
+      console.error('Token verification failed:', {
+        name: err.name,
+        message: err.message,
+        expiredAt: err.expiredAt,
+        date: err.date
+      });
+      
       if (err.name === 'TokenExpiredError') {
         return res.status(401).json({ 
           error: 'Token has expired',
-          expiredAt: err.expiredAt
+          expiredAt: err.expiredAt,
+          message: 'The token has expired, please request a new one',
+          debug: {
+            currentTime: new Date().toISOString(),
+            expiredAt: err.expiredAt
+          }
         });
       }
       if (err.name === 'JsonWebTokenError') {
         return res.status(401).json({ 
           error: 'Invalid token format',
-          details: err.message
+          details: err.message,
+          message: 'The token format is invalid or corrupted',
+          debug: {
+            tokenLength: token.length,
+            tokenStart: token.substring(0, 10) + '...'
+          }
         });
       }
       if (err.name === 'NotBeforeError') {
         return res.status(401).json({ 
           error: 'Token not active yet',
-          date: err.date
+          date: err.date,
+          message: 'The token is not active yet'
         });
       }
       return res.status(401).json({ 
         error: 'Invalid token',
-        type: err.name
+        type: err.name,
+        message: 'Token verification failed',
+        debug: {
+          jwtSecret: process.env.JWT_SECRET ? 'configured' : 'missing'
+        }
       });
     }
     
-    // Get client from database
-    const client = await Client.findOne({ clientId: decodedToken.clientId });
-    
-    if (!client) {
-      console.error(`Client not found: ${decodedToken.clientId}`);
-      return res.status(404).json({ 
-        error: 'Client not found',
+    // Get client from database with enhanced error handling
+    let client;
+    try {
+      client = await Client.findOne({ clientId: decodedToken.clientId });
+      console.log(`Database query completed for clientId: ${decodedToken.clientId}`);
+    } catch (dbError) {
+      console.error('Database error while finding client:', {
+        error: dbError.message,
+        stack: dbError.stack,
         clientId: decodedToken.clientId
       });
+      return res.status(500).json({ 
+        error: 'Database error',
+        message: 'Unable to verify client information',
+        debug: {
+          dbConnected: require('mongoose').connection.readyState === 1,
+          error: process.env.NODE_ENV === 'development' ? dbError.message : 'Database connection issue'
+        }
+      });
     }
     
-    console.log(`Client found: ${client.name} (${client.clientId})`);
+    if (!client) {
+      console.error(`Client not found in database: ${decodedToken.clientId}`);
+      return res.status(404).json({ 
+        error: 'Client not found',
+        clientId: decodedToken.clientId,
+        message: 'The client associated with this token does not exist',
+        debug: {
+          tokenClientId: decodedToken.clientId,
+          dbSearchCompleted: true
+        }
+      });
+    }
+    
+    console.log(`Client found: ${client.name} (${client.clientId}), Active: ${client.active}`);
     
     if (!client.active) {
       console.warn(`Client is inactive: ${client.clientId}`);
       return res.status(403).json({ 
         error: 'Client account is inactive',
-        clientId: client.clientId
+        clientId: client.clientId,
+        message: 'This client account has been deactivated',
+        debug: {
+          clientName: client.name,
+          deactivatedAt: client.updatedAt
+        }
       });
     }
     
-    // Enhanced domain validation
+    // Enhanced domain validation with better logic
     if (client.allowedDomains && client.allowedDomains.length > 0) {
       if (!domain) {
         console.warn('Domain information is required but not provided');
         return res.status(400).json({ 
           error: 'Domain information is required',
-          allowedDomains: client.allowedDomains
+          allowedDomains: client.allowedDomains,
+          message: 'This client has domain restrictions enabled',
+          help: 'Include the domain in your validation request: {"token": "...", "domain": "example.com"}',
+          debug: {
+            hasRestrictions: true,
+            restrictionCount: client.allowedDomains.length
+          }
         });
       }
       
-      const isAllowed = client.isDomainAllowed(domain);
+      // Enhanced domain validation logic
+      const isAllowed = client.allowedDomains.some(allowedDomain => {
+        // Exact match
+        if (domain === allowedDomain) return true;
+        
+        // Remove protocol and www if present for comparison
+        const cleanDomain = domain.replace(/^(https?:\/\/)?(www\.)?/, '').toLowerCase();
+        const cleanAllowedDomain = allowedDomain.replace(/^(https?:\/\/)?(www\.)?/, '').toLowerCase();
+        
+        if (cleanDomain === cleanAllowedDomain) return true;
+        
+        // Subdomain match (e.g., sub.example.com matches example.com)
+        if (cleanDomain.endsWith(`.${cleanAllowedDomain}`)) return true;
+        
+        // Wildcard match (e.g., *.example.com)
+        if (allowedDomain.startsWith('*.')) {
+          const baseDomain = allowedDomain.substring(2).toLowerCase();
+          return cleanDomain === baseDomain || cleanDomain.endsWith(`.${baseDomain}`);
+        }
+        
+        return false;
+      });
       
       if (!isAllowed) {
         console.warn(`Domain not authorized: ${domain} for client: ${client.clientId}`);
@@ -109,7 +237,13 @@ router.post('/validate', async (req, res) => {
         return res.status(403).json({ 
           error: 'Domain not authorized',
           domain: domain,
-          allowedDomains: client.allowedDomains
+          allowedDomains: client.allowedDomains,
+          message: `Domain ${domain} is not authorized for this client`,
+          debug: {
+            providedDomain: domain,
+            cleanedDomain: domain.replace(/^(https?:\/\/)?(www\.)?/, '').toLowerCase(),
+            allowedDomains: client.allowedDomains
+          }
         });
       }
       
@@ -120,7 +254,7 @@ router.post('/validate', async (req, res) => {
     
     // Update request count and last request date
     try {
-      client.requestCount += 1;
+      client.requestCount = (client.requestCount || 0) + 1;
       client.lastRequestDate = new Date();
       await client.save();
       console.log(`Updated usage stats for client ${client.clientId}: ${client.requestCount} requests`);
@@ -129,34 +263,63 @@ router.post('/validate', async (req, res) => {
       // Continue anyway - don't fail validation due to stats update failure
     }
     
-    // Return chatbot configuration
+    // Enhanced response with comprehensive configuration
+    const customization = client.chatbotConfig?.customization || {};
     const response = {
       valid: true,
       config: {
-        widgetId: client.chatbotConfig.widgetId,
-        customization: client.chatbotConfig.customization || {
-          primaryColor: '#0084ff',
-          secondaryColor: '#ffffff',
-          headerText: 'Chat with us',
-          botName: 'Assistant'
+        widgetId: client.chatbotConfig?.widgetId || "6809b3a1523186af0b2c9933",
+        customization: {
+          primaryColor: customization.primaryColor || '#0084ff',
+          secondaryColor: customization.secondaryColor || '#ffffff',
+          headerText: customization.headerText || 'Chat with us',
+          botName: customization.botName || 'Assistant',
+          logoUrl: customization.logoUrl || '',
+          position: customization.position || 'right',
+          autoOpen: customization.autoOpen || false,
+          ...customization
         }
       },
       client: {
         name: client.name,
-        active: client.active
+        active: client.active,
+        clientId: client.clientId
       },
-      timestamp: new Date().toISOString()
+      validation: {
+        domain: domain || null,
+        timestamp: new Date().toISOString(),
+        requestCount: client.requestCount,
+        tokenValid: true,
+        tokenExpiry: decodedToken.exp ? new Date(decodedToken.exp * 1000).toISOString() : null
+      },
+      debug: process.env.NODE_ENV === 'development' ? {
+        tokenIssuer: decodedToken.iss,
+        tokenAudience: decodedToken.aud,
+        clientCreated: client.createdAt,
+        lastActive: client.lastRequestDate
+      } : undefined
     };
     
-    console.log('Validation successful, returning config');
+    console.log('=== VALIDATION SUCCESSFUL ===');
+    console.log('Response config widgetId:', response.config.widgetId);
+    console.log('Response customization:', response.config.customization);
+    
     res.json(response);
     
   } catch (error) {
-    console.error('Token validation error:', error);
+    console.error('=== TOKEN VALIDATION ERROR ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
+    
     res.status(500).json({ 
       error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred during validation'
+      message: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred during validation',
+      timestamp: new Date().toISOString(),
+      debug: process.env.NODE_ENV === 'development' ? {
+        errorType: error.name,
+        errorStack: error.stack
+      } : undefined
     });
   }
 });
@@ -170,49 +333,69 @@ router.post('/usage/track', async (req, res) => {
   try {
     console.log('Usage tracking request:', req.body);
     
+    // Set CORS headers
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+    
     const { clientId, url, referrer, timestamp } = req.body;
     
     if (!clientId) {
       console.warn('Usage tracking: Client ID is required');
-      return res.status(400).json({ 
+      // Still return success to prevent widget errors
+      return res.status(200).json({ 
+        success: true,
         error: 'Client ID is required',
-        received: req.body
+        received: req.body,
+        timestamp: new Date().toISOString()
       });
     }
     
     // Find the client
-    const client = await Client.findOne({ clientId });
+    let client;
+    try {
+      client = await Client.findOne({ clientId });
+    } catch (dbError) {
+      console.error('Database error during usage tracking:', dbError);
+      // Still return success to prevent widget errors
+      return res.status(200).json({ 
+        success: true,
+        error: 'Database error',
+        timestamp: new Date().toISOString()
+      });
+    }
     
     if (client) {
       console.log(`Tracking usage for client: ${client.name} (${clientId})`);
       
-      // Update usage stats
-      client.requestCount += 1;
-      client.lastRequestDate = new Date();
-      
-      // Could add more detailed analytics here in the future
-      // For example, storing usage patterns, popular pages, etc.
-      
       try {
+        // Update usage stats
+        client.requestCount = (client.requestCount || 0) + 1;
+        client.lastRequestDate = new Date();
+        
+        // Could add more detailed analytics here in the future
+        // For example, storing usage patterns, popular pages, etc.
+        
         await client.save();
         console.log(`Usage stats updated for ${clientId}: ${client.requestCount} total requests`);
       } catch (saveError) {
         console.error('Failed to save usage stats:', saveError);
+        // Continue anyway
       }
     } else {
       console.warn(`Usage tracking: Client not found: ${clientId}`);
     }
     
-    // Always return success, even if client not found
-    // This prevents leaking information about valid client IDs
+    // Always return success to prevent errors in the widget
     res.status(200).json({ 
       success: true,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      tracked: !!client
     });
     
   } catch (error) {
     console.error('Usage tracking error:', error);
-    // Still return success to prevent errors in the beacon call
+    // Still return success to prevent errors in the widget
     res.status(200).json({ 
       success: true,
       error: 'Failed to track usage',
@@ -230,6 +413,11 @@ router.get('/health', (req, res) => {
   const mongoose = require('mongoose');
   const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   
+  // Set CORS headers
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+  
   res.json({ 
     status: 'ok',
     service: 'Chatbot Leasing System',
@@ -244,7 +432,7 @@ router.get('/health', (req, res) => {
       name: 'MongoDB'
     },
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0'
+    version: '1.0.3'
   });
 });
 
@@ -255,6 +443,11 @@ router.get('/health', (req, res) => {
  */
 router.get('/widget-info/:widgetId', async (req, res) => {
   try {
+    // Set CORS headers
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+    
     const { widgetId } = req.params;
     
     if (!widgetId) {
@@ -299,6 +492,11 @@ router.get('/widget-info/:widgetId', async (req, res) => {
  */
 router.post('/verify-domain', async (req, res) => {
   try {
+    // Set CORS headers
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+    
     const { clientId, domain } = req.body;
     
     if (!clientId || !domain) {
@@ -343,6 +541,11 @@ router.post('/verify-domain', async (req, res) => {
  */
 router.get('/stats', async (req, res) => {
   try {
+    // Set CORS headers
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+    
     const Client = require('../models/Client');
     
     // Get basic statistics
