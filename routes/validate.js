@@ -1,4 +1,4 @@
-// Token validation and widget configuration routes - FIXED VERSION
+// Token validation and widget configuration routes - COMPLETE CORRECTED VERSION
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
@@ -11,7 +11,6 @@ const Client = require('../models/Client');
  */
 router.post('/validate', async (req, res) => {
   try {
-    // Enhanced logging for debugging
     console.log('=== VALIDATE ROUTE CALLED ===');
     console.log('Request method:', req.method);
     console.log('Request URL:', req.originalUrl);
@@ -22,10 +21,8 @@ router.post('/validate', async (req, res) => {
       'accept': req.headers.accept
     });
     console.log('Request body:', req.body);
-    console.log('Body type:', typeof req.body);
-    console.log('Body keys:', req.body ? Object.keys(req.body) : 'no body');
     
-    // Enhanced CORS headers - Set immediately
+    // CORRECTED: Set CORS headers immediately
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
@@ -37,33 +34,15 @@ router.post('/validate', async (req, res) => {
       return res.status(200).end();
     }
     
-    // Enhanced body validation
-    if (!req.body) {
-      console.error('Request body is completely missing');
+    // CORRECTED: Enhanced body validation
+    if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+      console.error('Request body is missing or empty');
       return res.status(400).json({ 
         error: 'Request body is required',
-        received: 'No body data',
-        contentType: req.get('content-type') || 'not provided',
-        debug: {
-          method: req.method,
-          url: req.originalUrl,
-          hasBody: !!req.body
-        }
-      });
-    }
-    
-    // Check if body is empty object
-    if (typeof req.body === 'object' && Object.keys(req.body).length === 0) {
-      console.error('Request body is an empty object');
-      return res.status(400).json({ 
-        error: 'Request body cannot be empty',
-        received: 'Empty object',
-        contentType: req.get('content-type') || 'not provided',
-        debug: {
-          bodyType: typeof req.body,
-          bodyKeys: Object.keys(req.body),
-          bodyString: JSON.stringify(req.body)
-        }
+        message: 'Please provide a JSON body with token and domain',
+        example: { token: "your_jwt_token", domain: "yourdomain.com" },
+        received: req.body,
+        contentType: req.get('content-type') || 'not provided'
       });
     }
     
@@ -73,57 +52,41 @@ router.post('/validate', async (req, res) => {
       console.error('Token is missing from request body');
       return res.status(400).json({ 
         error: 'Token is required',
+        message: 'Please provide a valid JWT token',
         received: { 
           token: token || 'undefined', 
           domain: domain || 'undefined',
-          bodyKeys: Object.keys(req.body || {}),
-          bodyType: typeof req.body
-        },
-        help: 'Include a valid JWT token in the request body as: {"token": "your_token", "domain": "your_domain"}'
+          bodyKeys: Object.keys(req.body || {})
+        }
       });
     }
     
     console.log(`Validating token for domain: ${domain || 'no domain provided'}`);
     
-    // Verify token with enhanced error handling
+    // CORRECTED: Verify token with enhanced error handling
     let decodedToken;
     try {
       decodedToken = jwt.verify(token, process.env.JWT_SECRET);
       console.log('Token decoded successfully:', { 
         clientId: decodedToken.clientId,
         iat: decodedToken.iat ? new Date(decodedToken.iat * 1000).toISOString() : 'not set',
-        exp: decodedToken.exp ? new Date(decodedToken.exp * 1000).toISOString() : 'not set',
-        audience: decodedToken.aud,
-        issuer: decodedToken.iss
+        exp: decodedToken.exp ? new Date(decodedToken.exp * 1000).toISOString() : 'not set'
       });
     } catch (err) {
-      console.error('Token verification failed:', {
-        name: err.name,
-        message: err.message,
-        expiredAt: err.expiredAt,
-        date: err.date
-      });
+      console.error('Token verification failed:', err.name, err.message);
       
       if (err.name === 'TokenExpiredError') {
         return res.status(401).json({ 
           error: 'Token has expired',
           expiredAt: err.expiredAt,
-          message: 'The token has expired, please request a new one',
-          debug: {
-            currentTime: new Date().toISOString(),
-            expiredAt: err.expiredAt
-          }
+          message: 'The token has expired, please request a new one'
         });
       }
       if (err.name === 'JsonWebTokenError') {
         return res.status(401).json({ 
           error: 'Invalid token format',
           details: err.message,
-          message: 'The token format is invalid or corrupted',
-          debug: {
-            tokenLength: token.length,
-            tokenStart: token.substring(0, 10) + '...'
-          }
+          message: 'The token format is invalid'
         });
       }
       if (err.name === 'NotBeforeError') {
@@ -136,44 +99,28 @@ router.post('/validate', async (req, res) => {
       return res.status(401).json({ 
         error: 'Invalid token',
         type: err.name,
-        message: 'Token verification failed',
-        debug: {
-          jwtSecret: process.env.JWT_SECRET ? 'configured' : 'missing'
-        }
+        message: 'Token verification failed'
       });
     }
     
-    // Get client from database with enhanced error handling
+    // CORRECTED: Get client from database with enhanced error handling
     let client;
     try {
       client = await Client.findOne({ clientId: decodedToken.clientId });
-      console.log(`Database query completed for clientId: ${decodedToken.clientId}`);
     } catch (dbError) {
-      console.error('Database error while finding client:', {
-        error: dbError.message,
-        stack: dbError.stack,
-        clientId: decodedToken.clientId
-      });
+      console.error('Database error while finding client:', dbError);
       return res.status(500).json({ 
         error: 'Database error',
-        message: 'Unable to verify client information',
-        debug: {
-          dbConnected: require('mongoose').connection.readyState === 1,
-          error: process.env.NODE_ENV === 'development' ? dbError.message : 'Database connection issue'
-        }
+        message: 'Unable to verify client information'
       });
     }
     
     if (!client) {
-      console.error(`Client not found in database: ${decodedToken.clientId}`);
+      console.error(`Client not found: ${decodedToken.clientId}`);
       return res.status(404).json({ 
         error: 'Client not found',
         clientId: decodedToken.clientId,
-        message: 'The client associated with this token does not exist',
-        debug: {
-          tokenClientId: decodedToken.clientId,
-          dbSearchCompleted: true
-        }
+        message: 'The client associated with this token does not exist'
       });
     }
     
@@ -184,45 +131,35 @@ router.post('/validate', async (req, res) => {
       return res.status(403).json({ 
         error: 'Client account is inactive',
         clientId: client.clientId,
-        message: 'This client account has been deactivated',
-        debug: {
-          clientName: client.name,
-          deactivatedAt: client.updatedAt
-        }
+        message: 'This client account has been deactivated'
       });
     }
     
-    // Enhanced domain validation with better logic
+    // CORRECTED: Enhanced domain validation
     if (client.allowedDomains && client.allowedDomains.length > 0) {
       if (!domain) {
         console.warn('Domain information is required but not provided');
         return res.status(400).json({ 
           error: 'Domain information is required',
           allowedDomains: client.allowedDomains,
-          message: 'This client has domain restrictions enabled',
-          help: 'Include the domain in your validation request: {"token": "...", "domain": "example.com"}',
-          debug: {
-            hasRestrictions: true,
-            restrictionCount: client.allowedDomains.length
-          }
+          message: 'This client has domain restrictions enabled'
         });
       }
       
-      // Enhanced domain validation logic
       const isAllowed = client.allowedDomains.some(allowedDomain => {
         // Exact match
         if (domain === allowedDomain) return true;
         
-        // Remove protocol and www if present for comparison
+        // Clean domain comparison (remove protocol and www)
         const cleanDomain = domain.replace(/^(https?:\/\/)?(www\.)?/, '').toLowerCase();
         const cleanAllowedDomain = allowedDomain.replace(/^(https?:\/\/)?(www\.)?/, '').toLowerCase();
         
         if (cleanDomain === cleanAllowedDomain) return true;
         
-        // Subdomain match (e.g., sub.example.com matches example.com)
+        // Subdomain match
         if (cleanDomain.endsWith(`.${cleanAllowedDomain}`)) return true;
         
-        // Wildcard match (e.g., *.example.com)
+        // Wildcard match
         if (allowedDomain.startsWith('*.')) {
           const baseDomain = allowedDomain.substring(2).toLowerCase();
           return cleanDomain === baseDomain || cleanDomain.endsWith(`.${baseDomain}`);
@@ -233,23 +170,15 @@ router.post('/validate', async (req, res) => {
       
       if (!isAllowed) {
         console.warn(`Domain not authorized: ${domain} for client: ${client.clientId}`);
-        console.warn(`Allowed domains: ${client.allowedDomains.join(', ')}`);
         return res.status(403).json({ 
           error: 'Domain not authorized',
           domain: domain,
           allowedDomains: client.allowedDomains,
-          message: `Domain ${domain} is not authorized for this client`,
-          debug: {
-            providedDomain: domain,
-            cleanedDomain: domain.replace(/^(https?:\/\/)?(www\.)?/, '').toLowerCase(),
-            allowedDomains: client.allowedDomains
-          }
+          message: `Domain ${domain} is not authorized for this client`
         });
       }
       
       console.log(`Domain ${domain} is authorized for client ${client.clientId}`);
-    } else {
-      console.log(`No domain restrictions for client ${client.clientId}`);
     }
     
     // Update request count and last request date
@@ -263,7 +192,7 @@ router.post('/validate', async (req, res) => {
       // Continue anyway - don't fail validation due to stats update failure
     }
     
-    // Enhanced response with comprehensive configuration
+    // CORRECTED: Enhanced response with proper widget configuration
     const customization = client.chatbotConfig?.customization || {};
     const response = {
       valid: true,
@@ -289,37 +218,24 @@ router.post('/validate', async (req, res) => {
         domain: domain || null,
         timestamp: new Date().toISOString(),
         requestCount: client.requestCount,
-        tokenValid: true,
-        tokenExpiry: decodedToken.exp ? new Date(decodedToken.exp * 1000).toISOString() : null
-      },
-      debug: process.env.NODE_ENV === 'development' ? {
-        tokenIssuer: decodedToken.iss,
-        tokenAudience: decodedToken.aud,
-        clientCreated: client.createdAt,
-        lastActive: client.lastRequestDate
-      } : undefined
+        tokenValid: true
+      }
     };
     
     console.log('=== VALIDATION SUCCESSFUL ===');
-    console.log('Response config widgetId:', response.config.widgetId);
-    console.log('Response customization:', response.config.customization);
+    console.log('Response config:', response.config);
     
     res.json(response);
     
   } catch (error) {
     console.error('=== TOKEN VALIDATION ERROR ===');
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
+    console.error('Error:', error);
+    console.error('Stack:', error.stack);
     
     res.status(500).json({ 
       error: 'Internal server error',
       message: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred during validation',
-      timestamp: new Date().toISOString(),
-      debug: process.env.NODE_ENV === 'development' ? {
-        errorType: error.name,
-        errorStack: error.stack
-      } : undefined
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -342,7 +258,6 @@ router.post('/usage/track', async (req, res) => {
     
     if (!clientId) {
       console.warn('Usage tracking: Client ID is required');
-      // Still return success to prevent widget errors
       return res.status(200).json({ 
         success: true,
         error: 'Client ID is required',
@@ -357,7 +272,6 @@ router.post('/usage/track', async (req, res) => {
       client = await Client.findOne({ clientId });
     } catch (dbError) {
       console.error('Database error during usage tracking:', dbError);
-      // Still return success to prevent widget errors
       return res.status(200).json({ 
         success: true,
         error: 'Database error',
@@ -373,14 +287,10 @@ router.post('/usage/track', async (req, res) => {
         client.requestCount = (client.requestCount || 0) + 1;
         client.lastRequestDate = new Date();
         
-        // Could add more detailed analytics here in the future
-        // For example, storing usage patterns, popular pages, etc.
-        
         await client.save();
         console.log(`Usage stats updated for ${clientId}: ${client.requestCount} total requests`);
       } catch (saveError) {
         console.error('Failed to save usage stats:', saveError);
-        // Continue anyway
       }
     } else {
       console.warn(`Usage tracking: Client not found: ${clientId}`);
@@ -395,7 +305,6 @@ router.post('/usage/track', async (req, res) => {
     
   } catch (error) {
     console.error('Usage tracking error:', error);
-    // Still return success to prevent errors in the widget
     res.status(200).json({ 
       success: true,
       error: 'Failed to track usage',
@@ -413,7 +322,6 @@ router.get('/health', (req, res) => {
   const mongoose = require('mongoose');
   const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   
-  // Set CORS headers
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
@@ -443,7 +351,6 @@ router.get('/health', (req, res) => {
  */
 router.get('/widget-info/:widgetId', async (req, res) => {
   try {
-    // Set CORS headers
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
@@ -454,7 +361,6 @@ router.get('/widget-info/:widgetId', async (req, res) => {
       return res.status(400).json({ error: 'Widget ID is required' });
     }
     
-    // Find client by widget ID
     const client = await Client.findOne({ 'chatbotConfig.widgetId': widgetId });
     
     if (!client) {
@@ -464,7 +370,6 @@ router.get('/widget-info/:widgetId', async (req, res) => {
       });
     }
     
-    // Return basic widget information (no sensitive data)
     res.json({
       widgetId: widgetId,
       exists: true,
@@ -492,7 +397,6 @@ router.get('/widget-info/:widgetId', async (req, res) => {
  */
 router.post('/verify-domain', async (req, res) => {
   try {
-    // Set CORS headers
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
@@ -541,14 +445,10 @@ router.post('/verify-domain', async (req, res) => {
  */
 router.get('/stats', async (req, res) => {
   try {
-    // Set CORS headers
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
     
-    const Client = require('../models/Client');
-    
-    // Get basic statistics
     const totalClients = await Client.countDocuments();
     const activeClients = await Client.countDocuments({ active: true });
     const totalRequests = await Client.aggregate([
@@ -571,6 +471,146 @@ router.get('/stats', async (req, res) => {
     res.status(500).json({ 
       error: 'Internal server error',
       message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get stats'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/client-info
+ * @desc    Get client information by token (for widget)
+ * @access  Public
+ */
+router.post('/client-info', async (req, res) => {
+  try {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+    
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({ 
+        error: 'Token is required',
+        message: 'Please provide a valid JWT token'
+      });
+    }
+    
+    // Verify token
+    let decodedToken;
+    try {
+      decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ 
+        error: 'Invalid token',
+        message: 'Token verification failed'
+      });
+    }
+    
+    // Get client
+    const client = await Client.findOne({ clientId: decodedToken.clientId });
+    
+    if (!client) {
+      return res.status(404).json({ 
+        error: 'Client not found',
+        clientId: decodedToken.clientId
+      });
+    }
+    
+    res.json({
+      clientId: client.clientId,
+      name: client.name,
+      active: client.active,
+      widgetId: client.chatbotConfig?.widgetId,
+      customization: client.chatbotConfig?.customization || {}
+    });
+    
+  } catch (error) {
+    console.error('Client info error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get client info'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/test-connection
+ * @desc    Test connection endpoint for widget debugging
+ * @access  Public
+ */
+router.post('/test-connection', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+  
+  console.log('Test connection request from:', req.headers.origin || 'unknown origin');
+  
+  res.json({
+    success: true,
+    message: 'Connection test successful',
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin || 'no origin',
+    userAgent: req.headers['user-agent'] || 'no user agent',
+    ip: req.ip || 'unknown ip',
+    body: req.body || {}
+  });
+});
+
+/**
+ * @route   GET /api/widget-config/:clientId
+ * @desc    Get widget configuration for a client (public endpoint)
+ * @access  Public
+ */
+router.get('/widget-config/:clientId', async (req, res) => {
+  try {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
+    
+    const { clientId } = req.params;
+    
+    if (!clientId) {
+      return res.status(400).json({ error: 'Client ID is required' });
+    }
+    
+    const client = await Client.findOne({ clientId });
+    
+    if (!client) {
+      return res.status(404).json({ 
+        error: 'Client not found',
+        clientId: clientId
+      });
+    }
+    
+    if (!client.active) {
+      return res.status(403).json({ 
+        error: 'Client account is inactive',
+        clientId: clientId
+      });
+    }
+    
+    // Return public configuration only
+    const customization = client.chatbotConfig?.customization || {};
+    res.json({
+      widgetId: client.chatbotConfig?.widgetId || "6809b3a1523186af0b2c9933",
+      customization: {
+        primaryColor: customization.primaryColor || '#0084ff',
+        secondaryColor: customization.secondaryColor || '#ffffff',
+        headerText: customization.headerText || 'Chat with us',
+        botName: customization.botName || 'Assistant',
+        logoUrl: customization.logoUrl || '',
+        position: customization.position || 'right',
+        autoOpen: customization.autoOpen || false
+      },
+      active: client.active,
+      name: client.name
+    });
+    
+  } catch (error) {
+    console.error('Widget config error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get widget config'
     });
   }
 });

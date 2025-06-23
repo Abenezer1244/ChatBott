@@ -1,6 +1,6 @@
 {
     "name": "chatbot-leasing-system",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "description": "A system for leasing TestMyPrompt chatbots to clients",
     "main": "index.js",
     "scripts": {
@@ -11,9 +11,10 @@
         "postinstall": "npm install buffer-equal-constant-time@1.0.1 --no-save"
     },
     "engines": {
-        "node": "16.20.0"
+        "node": ">=16.20.0"
     },
     "dependencies": {
+        "buffer-equal-constant-time": "1.0.1",
         "compression": "^1.8.0",
         "cors": "^2.8.5",
         "dotenv": "^16.5.0",
@@ -23,16 +24,23 @@
         "jsonwebtoken": "^9.0.2",
         "mongodb": "^6.16.0",
         "mongoose": "^8.14.1",
-        "uuid": "^9.0.1",
-        "buffer-equal-constant-time": "1.0.1"
+        "uuid": "^9.0.1"
     },
     "devDependencies": {
         "jest": "^29.7.0",
         "nodemon": "^3.1.10",
         "supertest": "^6.3.4"
     },
-
     "overrides": {
         "buffer-equal-constant-time": "1.0.1"
-}
+    },
+    "keywords": [
+        "chatbot",
+        "leasing",
+        "testmyprompt",
+        "widget",
+        "api"
+    ],
+    "author": "Your Name",
+    "license": "MIT"
 }
