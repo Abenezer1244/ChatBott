@@ -235,6 +235,16 @@ mongoose.connection.on('error', (err) => {
 // Use the external Client model
 const Client = require('./models/Client');
 
+// IMPORT AND USE ROUTE MODULES - THIS WAS MISSING!
+const clientRoutes = require('./routes/clients');
+const authRoutes = require('./routes/auth');
+const validateRoutes = require('./routes/validate');
+
+// Mount the route modules
+app.use('/api/clients', clientRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api', validateRoutes); // This includes /validate, /usage/track, /health, etc.
+
 // DOMAIN-BASED ADMIN ACCESS ROUTE
 app.get('/', (req, res) => {
   const host = req.get('host') || '';
@@ -303,7 +313,7 @@ app.get('/admin', (req, res) => {
   }
 });
 
-// CRITICAL FIX: Enhanced TOKEN VALIDATION ROUTE
+// CRITICAL FIX: Enhanced TOKEN VALIDATION ROUTE (keeping the existing one in case routes don't work)
 app.post('/api/validate', async (req, res) => {
   try {
     console.log('=== TOKEN VALIDATION REQUEST ===');
@@ -528,7 +538,7 @@ app.post('/api/validate', async (req, res) => {
   }
 });
 
-// ENHANCED AUTHENTICATION ROUTES
+// ENHANCED AUTHENTICATION ROUTES (keeping these as backup)
 
 // Generate a new token for a client
 app.post('/api/auth/token', async (req, res) => {
@@ -636,9 +646,6 @@ app.get('/widget.js', (req, res) => {
     res.status(500).send('// Error loading widget - please try again later');
   }
 });
-
-// Continue with the rest of your existing routes...
-// [Include all your other routes here - clients, auth, etc.]
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
