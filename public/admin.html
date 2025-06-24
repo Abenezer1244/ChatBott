@@ -603,9 +603,11 @@
         });
     });
 
-    // Copy embed code to clipboard
+// Copy embed code to clipboard
     document.getElementById('copy-embed-code').addEventListener('click', function() {
-      const embedCode = `<script src="${API_BASE_URL}/widget.js"><\/script>
+      // FIXED: Always use full server URL for widget.js
+      const serverUrl = API_BASE_URL || 'https://chatbott-5579.onrender.com';
+      const embedCode = `<script src="${serverUrl}/widget.js"><\/script>
 <script>
   window.MyChatWidget.init({
     token: "${currentToken}",
