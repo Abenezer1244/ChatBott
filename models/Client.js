@@ -1,4 +1,4 @@
-// Client model schema for MongoDB
+// Client model schema for MongoDB - CORRECTED VERSION
 const mongoose = require('mongoose');
 
 const clientSchema = new mongoose.Schema({
@@ -40,7 +40,8 @@ const clientSchema = new mongoose.Schema({
   chatbotConfig: {
     widgetId: { 
       type: String, 
-      required: true 
+      required: true,
+      default: "6809b3a1523186af0b2c9933"
     },
     customization: {
       primaryColor: { 
@@ -69,6 +70,15 @@ const clientSchema = new mongoose.Schema({
         type: String, 
         default: '',
         trim: true
+      },
+      position: {
+        type: String,
+        default: 'right',
+        enum: ['left', 'right']
+      },
+      autoOpen: {
+        type: Boolean,
+        default: false
       }
     }
   },
@@ -87,7 +97,8 @@ const clientSchema = new mongoose.Schema({
   indexes: [
     { clientId: 1 },
     { email: 1 },
-    { active: 1 }
+    { active: 1 },
+    { 'chatbotConfig.widgetId': 1 }
   ]
 });
 
@@ -104,16 +115,73 @@ clientSchema.virtual('domainList').get(function() {
     'All domains allowed';
 });
 
-// Method to check if a domain is allowed
+// CORRECTED: Method to check if a domain is allowed
 clientSchema.methods.isDomainAllowed = function(domain) {
   if (!this.allowedDomains || this.allowedDomains.length === 0) {
     return true; // All domains allowed
   }
   
-  return this.allowedDomains.some(allowedDomain => 
-    domain === allowedDomain || domain.endsWith(`.${allowedDomain}`)
-  );
+  return this.allowedDomains.some(allowedDomain => {
+    // Exact match
+    if (domain === allowedDomain) return true;
+    
+    // Clean domain comparison (remove protocol and www)
+    const cleanDomain = domain.replace(/^(https?:\/\/)?(www\.)?/, '').toLowerCase();
+    const cleanAllowedDomain = allowedDomain.replace(/^(https?:\/\/)?(www\.)?/, '').toLowerCase();
+    
+    if (cleanDomain === cleanAllowedDomain) return true;
+    
+    // Subdomain match
+    if (cleanDomain.endsWith(`.${cleanAllowedDomain}`)) return true;
+    
+    // Wildcard match
+    if (allowedDomain.startsWith('*.')) {
+      const baseDomain = allowedDomain.substring(2).toLowerCase();
+      return cleanDomain === baseDomain || cleanDomain.endsWith(`.${baseDomain}`);
+    }
+    
+    return false;
+  });
 };
+
+// Method to get usage statistics
+clientSchema.methods.getUsageStats = function() {
+  const now = new Date();
+  const createdAt = new Date(this.createdAt);
+  const daysSinceCreated = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
+  
+  let daysSinceLastRequest = null;
+  if (this.lastRequestDate) {
+    daysSinceLastRequest = Math.floor((now - new Date(this.lastRequestDate)) / (1000 * 60 * 60 * 24));
+  }
+  
+  return {
+    totalRequests: this.requestCount || 0,
+    daysSinceCreated: daysSinceCreated,
+    daysSinceLastRequest: daysSinceLastRequest,
+    averageRequestsPerDay: daysSinceCreated > 0 ? ((this.requestCount || 0) / daysSinceCreated).toFixed(2) : 0,
+    lastRequestFormatted: this.lastRequestDate ? this.lastRequestDate.toISOString() : null
+  };
+};
+
+// Static method to find clients by domain
+clientSchema.statics.findByDomain = function(domain) {
+  return this.find({
+    $or: [
+      { allowedDomains: { $size: 0 } }, // No restrictions
+      { allowedDomains: domain }, // Exact match
+      { allowedDomains: { $regex: `^\\*\\.${domain.replace(/\./g, '\\.')}$` } } // Wildcard match
+    ],
+    active: true
+  });
+};
+
+// Add text indexes for search functionality
+clientSchema.index({
+  name: 'text',
+  email: 'text',
+  clientId: 'text'
+});
 
 const Client = mongoose.model('Client', clientSchema);
 

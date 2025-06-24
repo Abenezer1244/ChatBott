@@ -1,5 +1,5 @@
 /**
- * Chatbot Leasing System - Fixed Main Server File
+ * Chatbot Leasing System - CORRECTED Main Server File
  * Production-ready implementation for leasing TestMyPrompt chatbots
  */
 
@@ -40,16 +40,16 @@ app.use((req, res, next) => {
   }
 });
 
-// FIXED: Enhanced CORS configuration with more permissive settings for widget loading
+// CORRECTED: More permissive CORS configuration for widget functionality
 const corsOptions = {
   origin: function (origin, callback) {
-    // CRITICAL FIX: Allow requests with no origin (direct API calls, mobile apps, etc.)
+    // Allow requests with no origin (direct API calls, mobile apps, etc.)
     if (!origin) {
       console.log('CORS: Request with no origin - allowing');
       return callback(null, true);
     }
     
-    // CRITICAL FIX: Allow all origins for widget functionality - this is essential for widgets
+    // Allow all origins for widget functionality - essential for widgets
     console.log('CORS: Request from origin:', origin);
     callback(null, true);
   },
@@ -66,14 +66,14 @@ const corsOptions = {
     'Access-Control-Allow-Headers',
     'Access-Control-Allow-Methods'
   ],
-  credentials: false, // FIXED: Set to false for widget usage
+  credentials: false, // Set to false for widget usage
   optionsSuccessStatus: 200,
   preflightContinue: false
 };
 
 app.use(cors(corsOptions));
 
-// FIXED: Enhanced preflight handler for all routes
+// CORRECTED: Global preflight handler for all routes
 app.options('*', (req, res) => {
   const origin = req.get('origin') || '*';
   res.header('Access-Control-Allow-Origin', origin);
@@ -84,7 +84,7 @@ app.options('*', (req, res) => {
   res.status(200).end();
 });
 
-// FIXED: Enhanced body parsing with better error handling
+// Enhanced body parsing with better error handling
 app.use(express.json({ 
   limit: '1mb',
   verify: (req, res, buf) => {
@@ -114,10 +114,10 @@ if (!MONGODB_URI || !JWT_SECRET) {
   process.exit(1);
 }
 
-// FIXED: Rate limiting with widget-friendly configuration
+// Rate limiting with widget-friendly configuration
 const apiLimiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes default
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 500, // INCREASED for widget functionality
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
@@ -127,12 +127,14 @@ const apiLimiter = rateLimit({
     const isWidgetRequest = req.path.includes('/validate') || 
                            req.path.includes('/widget.js') || 
                            req.path.includes('/usage/track') ||
-                           req.path.includes('/auth/token');
+                           req.path.includes('/auth/token') ||
+                           req.path.includes('/health') ||
+                           req.path.includes('/test-connection');
     return adminKey === process.env.ADMIN_KEY || isWidgetRequest;
   }
 });
 
-// FIXED: Enhanced security headers for widget compatibility
+// CORRECTED: Widget-friendly security headers
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -145,17 +147,28 @@ app.use(helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'", "https:", "http:"],
       frameSrc: ["'self'", "https:", "http:", "*.testmyprompt.com", "testmyprompt.com"],
-      frameAncestors: ["*"], // CRITICAL: Allow embedding in any frame
+      frameAncestors: ["*"], // Allow embedding in any frame
       workerSrc: ["'self'", "blob:"],
       childSrc: ["'self'", "blob:"]
     },
   },
-  crossOriginResourcePolicy: { policy: "cross-origin" }, // CRITICAL for widget loading
-  crossOriginEmbedderPolicy: false // CRITICAL: Disable for iframe compatibility
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false
 })); 
 
 app.use(compression());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// CORRECTED: Serve static files with proper CORS headers
+app.use('/public', express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, path) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    }
+  }
+}));
 
 // Apply rate limiting to API requests (excluding critical widget endpoints)
 app.use('/api', (req, res, next) => {
@@ -164,7 +177,8 @@ app.use('/api', (req, res, next) => {
       req.path === '/usage/track' || 
       req.path === '/auth/token' ||
       req.path === '/widget-info' ||
-      req.path === '/health') {
+      req.path === '/health' ||
+      req.path === '/test-connection') {
     return next();
   }
   return apiLimiter(req, res, next);
@@ -201,7 +215,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB Connection with proper error handling and timeout settings
+// MongoDB Connection with proper error handling
 mongoose.connect(MONGODB_URI, {
   serverSelectionTimeoutMS: 5000,
   connectTimeoutMS: 10000,
@@ -235,15 +249,15 @@ mongoose.connection.on('error', (err) => {
 // Use the external Client model
 const Client = require('./models/Client');
 
-// IMPORT AND USE ROUTE MODULES - THIS WAS MISSING!
+// CORRECTED: Import and mount route modules properly
 const clientRoutes = require('./routes/clients');
 const authRoutes = require('./routes/auth');
 const validateRoutes = require('./routes/validate');
 
-// Mount the route modules
+// Mount the route modules with proper middleware
 app.use('/api/clients', clientRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api', validateRoutes); // This includes /validate, /usage/track, /health, etc.
+app.use('/api', validateRoutes);
 
 // DOMAIN-BASED ADMIN ACCESS ROUTE
 app.get('/', (req, res) => {
@@ -313,318 +327,7 @@ app.get('/admin', (req, res) => {
   }
 });
 
-// CRITICAL FIX: Enhanced TOKEN VALIDATION ROUTE (keeping the existing one in case routes don't work)
-app.post('/api/validate', async (req, res) => {
-  try {
-    console.log('=== TOKEN VALIDATION REQUEST ===');
-    console.log('Headers:', {
-      origin: req.headers.origin,
-      referer: req.headers.referer,
-      'user-agent': req.headers['user-agent'],
-      'content-type': req.headers['content-type']
-    });
-    console.log('Body:', req.body);
-    console.log('Method:', req.method);
-    console.log('URL:', req.originalUrl);
-    console.log('IP:', req.ip);
-    
-    // FIXED: Enhanced request validation
-    if (!req.body || Object.keys(req.body).length === 0) {
-      console.error('Request body is missing or empty');
-      return res.status(400).json({ 
-        error: 'Request body is required',
-        received: 'Empty or missing body data',
-        contentType: req.get('content-type') || 'not provided'
-      });
-    }
-    
-    const { token, domain } = req.body;
-    
-    if (!token) {
-      console.error('Token is missing from request');
-      return res.status(400).json({ 
-        error: 'Token is required',
-        received: { 
-          token: token || 'undefined', 
-          domain: domain || 'undefined',
-          bodyKeys: Object.keys(req.body || {})
-        },
-        help: 'Include a valid JWT token in the request body'
-      });
-    }
-    
-    console.log(`Validating token for domain: ${domain || 'no domain provided'}`);
-    
-    // FIXED: Verify token with enhanced error handling
-    let decodedToken;
-    try {
-      decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('Token decoded successfully:', { 
-        clientId: decodedToken.clientId,
-        iat: decodedToken.iat,
-        exp: decodedToken.exp,
-        expiresAt: new Date(decodedToken.exp * 1000).toISOString()
-      });
-    } catch (err) {
-      console.error('Token verification failed:', err.message, err.name);
-      
-      if (err.name === 'TokenExpiredError') {
-        return res.status(401).json({ 
-          error: 'Token has expired',
-          expiredAt: err.expiredAt,
-          message: 'The token has expired, please request a new one'
-        });
-      }
-      if (err.name === 'JsonWebTokenError') {
-        return res.status(401).json({ 
-          error: 'Invalid token format',
-          details: err.message,
-          message: 'The token format is invalid'
-        });
-      }
-      if (err.name === 'NotBeforeError') {
-        return res.status(401).json({ 
-          error: 'Token not active yet',
-          date: err.date,
-          message: 'The token is not active yet'
-        });
-      }
-      return res.status(401).json({ 
-        error: 'Invalid token',
-        type: err.name,
-        message: 'Token verification failed'
-      });
-    }
-    
-    // FIXED: Get client from database with enhanced error handling
-    let client;
-    try {
-      client = await Client.findOne({ clientId: decodedToken.clientId });
-    } catch (dbError) {
-      console.error('Database error while finding client:', dbError);
-      return res.status(500).json({ 
-        error: 'Database error',
-        message: 'Unable to verify client information'
-      });
-    }
-    
-    if (!client) {
-      console.error(`Client not found: ${decodedToken.clientId}`);
-      return res.status(404).json({ 
-        error: 'Client not found',
-        clientId: decodedToken.clientId,
-        message: 'The client associated with this token does not exist'
-      });
-    }
-    
-    console.log(`Client found: ${client.name} (${client.clientId}), Active: ${client.active}`);
-    
-    if (!client.active) {
-      console.warn(`Client is inactive: ${client.clientId}`);
-      return res.status(403).json({ 
-        error: 'Client account is inactive',
-        clientId: client.clientId,
-        message: 'This client account has been deactivated'
-      });
-    }
-    
-    // FIXED: Enhanced domain validation with better logic
-    if (client.allowedDomains && client.allowedDomains.length > 0) {
-      if (!domain) {
-        console.warn('Domain information is required but not provided');
-        return res.status(400).json({ 
-          error: 'Domain information is required',
-          allowedDomains: client.allowedDomains,
-          message: 'This client has domain restrictions enabled',
-          help: 'Include the domain in your validation request'
-        });
-      }
-      
-      // CRITICAL FIX: Better domain validation logic
-      const isAllowed = client.allowedDomains.some(allowedDomain => {
-        // Exact match
-        if (domain === allowedDomain) return true;
-        
-        // Remove protocol and www if present for comparison
-        const cleanDomain = domain.replace(/^(https?:\/\/)?(www\.)?/, '');
-        const cleanAllowedDomain = allowedDomain.replace(/^(https?:\/\/)?(www\.)?/, '');
-        
-        if (cleanDomain === cleanAllowedDomain) return true;
-        
-        // Subdomain match (e.g., sub.example.com matches example.com)
-        if (cleanDomain.endsWith(`.${cleanAllowedDomain}`)) return true;
-        
-        // Wildcard match (e.g., *.example.com)
-        if (allowedDomain.startsWith('*.')) {
-          const baseDomain = allowedDomain.substring(2);
-          return cleanDomain === baseDomain || cleanDomain.endsWith(`.${baseDomain}`);
-        }
-        
-        return false;
-      });
-      
-      if (!isAllowed) {
-        console.warn(`Domain not authorized: ${domain} for client: ${client.clientId}`);
-        console.warn(`Allowed domains: ${client.allowedDomains.join(', ')}`);
-        return res.status(403).json({ 
-          error: 'Domain not authorized',
-          domain: domain,
-          allowedDomains: client.allowedDomains,
-          message: `Domain ${domain} is not authorized for this client`
-        });
-      }
-      
-      console.log(`Domain ${domain} is authorized for client ${client.clientId}`);
-    } else {
-      console.log(`No domain restrictions for client ${client.clientId}`);
-    }
-    
-    // Update request count and last request date
-    try {
-      client.requestCount = (client.requestCount || 0) + 1;
-      client.lastRequestDate = new Date();
-      await client.save();
-      console.log(`Updated usage stats for client ${client.clientId}: ${client.requestCount} requests`);
-    } catch (saveError) {
-      console.error('Failed to update client usage stats:', saveError);
-      // Continue anyway - don't fail validation due to stats update failure
-    }
-    
-    // FIXED: Enhanced response with comprehensive configuration
-    const customization = client.chatbotConfig?.customization || {};
-    const response = {
-      valid: true,
-      config: {
-        widgetId: client.chatbotConfig?.widgetId || "6809b3a1523186af0b2c9933",
-        customization: {
-          primaryColor: customization.primaryColor || '#0084ff',
-          secondaryColor: customization.secondaryColor || '#ffffff',
-          headerText: customization.headerText || 'Chat with us',
-          botName: customization.botName || 'Assistant',
-          logoUrl: customization.logoUrl || '',
-          position: customization.position || 'right',
-          autoOpen: customization.autoOpen || false,
-          ...customization
-        }
-      },
-      client: {
-        name: client.name,
-        active: client.active,
-        clientId: client.clientId
-      },
-      validation: {
-        domain: domain || null,
-        timestamp: new Date().toISOString(),
-        requestCount: client.requestCount,
-        tokenValid: true
-      }
-    };
-    
-    console.log('=== VALIDATION SUCCESSFUL ===');
-    console.log('Response config:', response.config);
-    
-    res.json(response);
-    
-  } catch (error) {
-    console.error('=== TOKEN VALIDATION ERROR ===');
-    console.error('Error:', error);
-    console.error('Stack:', error.stack);
-    
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred during validation',
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
-// ENHANCED AUTHENTICATION ROUTES (keeping these as backup)
-
-// Generate a new token for a client
-app.post('/api/auth/token', async (req, res) => {
-  try {
-    console.log('Token generation request:', req.body);
-    
-    const { clientId } = req.body;
-    
-    if (!clientId) {
-      console.error('Client ID is missing from token request');
-      return res.status(400).json({ 
-        error: 'Client ID is required',
-        received: req.body,
-        help: 'Include clientId in the request body'
-      });
-    }
-    
-    // Find the client
-    const client = await Client.findOne({ clientId });
-    
-    if (!client) {
-      console.error(`Client not found: ${clientId}`);
-      return res.status(404).json({ 
-        error: 'Client not found',
-        clientId: clientId,
-        message: `No client found with ID: ${clientId}`
-      });
-    }
-    
-    console.log(`Client found: ${client.name} (${client.clientId})`);
-    
-    if (!client.active) {
-      console.warn(`Inactive client token request: ${clientId}`);
-      return res.status(403).json({ 
-        error: 'Client account is inactive',
-        clientId: clientId,
-        message: 'This client account has been deactivated'
-      });
-    }
-    
-    // Generate token with comprehensive claims
-    const tokenPayload = {
-      clientId: client.clientId,
-      active: client.active,
-      allowedDomains: client.allowedDomains,
-      tokenType: 'jwt',
-      iat: Math.floor(Date.now() / 1000),
-      clientName: client.name,
-      widgetId: client.chatbotConfig?.widgetId || "6809b3a1523186af0b2c9933"
-    };
-    
-    const tokenOptions = { 
-      expiresIn: process.env.TOKEN_EXPIRY || '24h', // INCREASED: 24 hours for better UX
-      issuer: 'chatbot-leasing-system',
-      audience: client.clientId
-    };
-    
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, tokenOptions);
-    
-    console.log(`Token generated successfully for client: ${clientId}`);
-    
-    const response = {
-      token,
-      expiresIn: process.env.TOKEN_EXPIRY || '24h',
-      clientId: client.clientId,
-      tokenType: 'Bearer',
-      generatedAt: new Date().toISOString(),
-      client: {
-        name: client.name,
-        active: client.active,
-        widgetId: client.chatbotConfig?.widgetId || "6809b3a1523186af0b2c9933"
-      }
-    };
-    
-    res.json(response);
-    
-  } catch (error) {
-    console.error('Token generation error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to generate token'
-    });
-  }
-});
-
-// FIXED: Widget.js serving endpoint with enhanced headers
+// CORRECTED: Widget.js serving endpoint with enhanced headers
 app.get('/widget.js', (req, res) => {
   console.log('Widget.js requested from:', req.get('origin') || req.get('referer') || 'unknown');
   
@@ -632,7 +335,7 @@ app.get('/widget.js', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Origin, X-Requested-With, Accept');
-  res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes cache
+  res.setHeader('Cache-Control', 'public, max-age=300');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
@@ -647,129 +350,90 @@ app.get('/widget.js', (req, res) => {
   }
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-  
-  res.json({ 
-    status: 'ok',
-    service: 'Chatbot Leasing System',
-    environment: NODE_ENV,
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-    memory: {
-      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
-      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB'
-    },
-    mongodb: mongoStatus,
-    version: '1.0.2'
-  });
-});
-
-// FIXED: Test endpoint for debugging
-app.get('/api/test', (req, res) => {
-  res.json({
-    message: 'API is working',
-    timestamp: new Date().toISOString(),
-    headers: {
-      origin: req.get('origin'),
-      referer: req.get('referer'),
-      userAgent: req.get('user-agent'),
-      host: req.get('host')
-    },
-    ip: req.ip,
-    method: req.method,
-    cors: 'enabled'
-  });
-});
-
-// Widget info endpoint for debugging
-app.get('/api/widget-info/:widgetId', async (req, res) => {
+// CORRECTED: Chat endpoint for real conversations
+app.post('/api/chat', async (req, res) => {
   try {
-    const { widgetId } = req.params;
+    console.log('Chat request:', req.body);
     
-    if (!widgetId) {
-      return res.status(400).json({ error: 'Widget ID is required' });
-    }
+    // Set CORS headers
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, Origin, X-Requested-With');
     
-    // Find client by widget ID
-    const client = await Client.findOne({ 'chatbotConfig.widgetId': widgetId });
+    const { message, widgetId, clientId } = req.body;
+    const authHeader = req.headers.authorization;
     
-    if (!client) {
-      return res.status(404).json({ 
-        error: 'Widget not found',
-        widgetId: widgetId
-      });
-    }
-    
-    // Return basic widget information (no sensitive data)
-    res.json({
-      widgetId: widgetId,
-      exists: true,
-      active: client.active,
-      customization: client.chatbotConfig.customization,
-      client: {
-        name: client.name,
-        active: client.active
-      }
-    });
-    
-  } catch (error) {
-    console.error('Widget info error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get widget info'
-    });
-  }
-});
-
-// USAGE TRACKING ROUTE
-app.post('/api/usage/track', async (req, res) => {
-  try {
-    console.log('Usage tracking request:', req.body);
-    
-    const { clientId, url, referrer, timestamp } = req.body;
-    
-    if (!clientId) {
-      console.warn('Usage tracking: Client ID is required');
+    if (!message) {
       return res.status(400).json({ 
-        error: 'Client ID is required',
+        error: 'Message is required',
         received: req.body
       });
     }
     
-    // Find the client
-    const client = await Client.findOne({ clientId });
-    
-    if (client) {
-      console.log(`Tracking usage for client: ${client.name} (${clientId})`);
-      
-      // Update usage stats
-      client.requestCount = (client.requestCount || 0) + 1;
-      client.lastRequestDate = new Date();
-      
+    // Verify token if provided
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
       try {
-        await client.save();
-        console.log(`Usage stats updated for ${clientId}: ${client.requestCount} total requests`);
-      } catch (saveError) {
-        console.error('Failed to save usage stats:', saveError);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('Chat request from verified client:', decoded.clientId);
+      } catch (err) {
+        console.warn('Invalid token in chat request:', err.message);
       }
-    } else {
-      console.warn(`Usage tracking: Client not found: ${clientId}`);
     }
     
-    // Always return success to prevent errors in the widget
-    res.status(200).json({ 
-      success: true,
-      timestamp: new Date().toISOString()
+    // For now, provide intelligent responses based on message content
+    let response;
+    const lowerMessage = message.toLowerCase();
+    
+    if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+      response = 'Hello! Welcome to our chat. How can I assist you today?';
+    } else if (lowerMessage.includes('help') || lowerMessage.includes('support')) {
+      response = 'I\'m here to help! You can ask me about our services, get information, or I can connect you with our support team. What do you need assistance with?';
+    } else if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('pricing')) {
+      response = 'I\'d be happy to help you with pricing information. Our costs vary depending on your specific needs. Would you like me to connect you with our sales team for a personalized quote?';
+    } else if (lowerMessage.includes('feature') || lowerMessage.includes('service') || lowerMessage.includes('what do you do')) {
+      response = 'We offer comprehensive chatbot solutions powered by TestMyPrompt. Our services include custom chatbot development, integration support, and ongoing maintenance. What specific features are you interested in?';
+    } else if (lowerMessage.includes('contact') || lowerMessage.includes('talk to someone') || lowerMessage.includes('human')) {
+      response = 'I can connect you with our team! Please provide your email address and I\'ll have someone reach out to you, or you can call us directly. How would you prefer to be contacted?';
+    } else if (lowerMessage.includes('how does this work') || lowerMessage.includes('how it works')) {
+      response = 'Great question! Our chatbot system integrates seamlessly into your website. We provide you with a simple script to add, and your visitors can immediately start chatting. The bot can handle common questions and escalate complex issues to your team.';
+    } else if (lowerMessage.includes('demo') || lowerMessage.includes('try') || lowerMessage.includes('test')) {
+      response = 'You\'re actually experiencing our demo right now! This chat widget is powered by our system. Would you like to see additional features or learn about customization options?';
+    } else if (lowerMessage.includes('thank') || lowerMessage.includes('thanks')) {
+      response = 'You\'re very welcome! Is there anything else I can help you with today?';
+    } else if (lowerMessage.includes('bye') || lowerMessage.includes('goodbye')) {
+      response = 'Goodbye! Thanks for chatting with us. Feel free to reach out anytime if you have more questions. Have a great day!';
+    } else {
+      // Generic helpful response
+      response = 'I understand what you\'re asking about. Our team specializes in providing intelligent chatbot solutions that can be customized for your specific needs. Would you like to learn more about how we can help your business, or do you have a specific question I can address?';
+    }
+    
+    // Track the conversation
+    if (clientId) {
+      try {
+        const client = await Client.findOne({ clientId });
+        if (client) {
+          client.requestCount = (client.requestCount || 0) + 1;
+          client.lastRequestDate = new Date();
+          await client.save();
+        }
+      } catch (dbError) {
+        console.error('Failed to track conversation:', dbError);
+      }
+    }
+    
+    res.json({
+      response: response,
+      timestamp: new Date().toISOString(),
+      widgetId: widgetId,
+      clientId: clientId
     });
     
   } catch (error) {
-    console.error('Usage tracking error:', error);
-    // Still return success to prevent errors in the widget
-    res.status(200).json({ 
-      success: true,
-      error: 'Failed to track usage',
+    console.error('Chat endpoint error:', error);
+    res.status(500).json({ 
+      response: 'I apologize, but I\'m experiencing some technical difficulties right now. Please try again in a moment, or contact our support team directly.',
+      error: 'Internal server error',
       timestamp: new Date().toISOString()
     });
   }
@@ -823,8 +487,10 @@ const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📝 Environment: ${NODE_ENV}`);
   console.log(`🔧 Admin panel: ${ADMIN_DOMAIN}`);
-  console.log(`🤖 Widget endpoint available`);
+  console.log(`🤖 Widget endpoint available at: /widget.js`);
   console.log(`📊 Health check: /api/health`);
+  console.log(`💬 Chat endpoint: /api/chat`);
+  console.log(`🔗 API base: /api`);
   console.log(`=================================`);
 });
 
@@ -838,14 +504,6 @@ process.on('SIGTERM', () => {
       process.exit(0);
     });
   });
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  setTimeout(() => {
-    console.log('Forcing shutdown');
-    process.exit(0);
-  }, 2000);
 });
 
 // Uncaught exception handler

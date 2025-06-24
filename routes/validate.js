@@ -1,8 +1,26 @@
-// Token validation and widget configuration routes - COMPLETE CORRECTED VERSION
+// Token validation and widget configuration routes - CORRECTED VERSION
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Client = require('../models/Client');
+
+// CORRECTED: Global CORS middleware for all validate routes
+router.use((req, res, next) => {
+  const origin = req.headers.origin || '*';
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-key, x-access-token');
+  res.header('Access-Control-Allow-Credentials', 'false');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    console.log(`OPTIONS preflight for ${req.originalUrl} from ${origin}`);
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
 /**
  * @route   POST /api/validate
@@ -22,19 +40,7 @@ router.post('/validate', async (req, res) => {
     });
     console.log('Request body:', req.body);
     
-    // CORRECTED: Set CORS headers immediately
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
-    res.header('Access-Control-Max-Age', '86400');
-    
-    // Handle preflight requests
-    if (req.method === 'OPTIONS') {
-      console.log('Handling OPTIONS preflight request');
-      return res.status(200).end();
-    }
-    
-    // CORRECTED: Enhanced body validation
+    // CORRECTED: Enhanced body validation with better error messages
     if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
       console.error('Request body is missing or empty');
       return res.status(400).json({ 
@@ -249,11 +255,6 @@ router.post('/usage/track', async (req, res) => {
   try {
     console.log('Usage tracking request:', req.body);
     
-    // Set CORS headers
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
-    
     const { clientId, url, referrer, timestamp } = req.body;
     
     if (!clientId) {
@@ -322,10 +323,6 @@ router.get('/health', (req, res) => {
   const mongoose = require('mongoose');
   const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
-  
   res.json({ 
     status: 'ok',
     service: 'Chatbot Leasing System',
@@ -345,16 +342,31 @@ router.get('/health', (req, res) => {
 });
 
 /**
+ * @route   POST /api/test-connection
+ * @desc    Test connection endpoint for widget debugging
+ * @access  Public
+ */
+router.post('/test-connection', (req, res) => {
+  console.log('Test connection request from:', req.headers.origin || 'unknown origin');
+  
+  res.json({
+    success: true,
+    message: 'Connection test successful',
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin || 'no origin',
+    userAgent: req.headers['user-agent'] || 'no user agent',
+    ip: req.ip || 'unknown ip',
+    body: req.body || {}
+  });
+});
+
+/**
  * @route   GET /api/widget-info/:widgetId
  * @desc    Get widget information (for debugging)
  * @access  Public
  */
 router.get('/widget-info/:widgetId', async (req, res) => {
   try {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
-    
     const { widgetId } = req.params;
     
     if (!widgetId) {
@@ -397,10 +409,6 @@ router.get('/widget-info/:widgetId', async (req, res) => {
  */
 router.post('/verify-domain', async (req, res) => {
   try {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
-    
     const { clientId, domain } = req.body;
     
     if (!clientId || !domain) {
@@ -445,10 +453,6 @@ router.post('/verify-domain', async (req, res) => {
  */
 router.get('/stats', async (req, res) => {
   try {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
-    
     const totalClients = await Client.countDocuments();
     const activeClients = await Client.countDocuments({ active: true });
     const totalRequests = await Client.aggregate([
@@ -482,10 +486,6 @@ router.get('/stats', async (req, res) => {
  */
 router.post('/client-info', async (req, res) => {
   try {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
-    
     const { token } = req.body;
     
     if (!token) {
@@ -534,39 +534,12 @@ router.post('/client-info', async (req, res) => {
 });
 
 /**
- * @route   POST /api/test-connection
- * @desc    Test connection endpoint for widget debugging
- * @access  Public
- */
-router.post('/test-connection', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
-  
-  console.log('Test connection request from:', req.headers.origin || 'unknown origin');
-  
-  res.json({
-    success: true,
-    message: 'Connection test successful',
-    timestamp: new Date().toISOString(),
-    origin: req.headers.origin || 'no origin',
-    userAgent: req.headers['user-agent'] || 'no user agent',
-    ip: req.ip || 'unknown ip',
-    body: req.body || {}
-  });
-});
-
-/**
  * @route   GET /api/widget-config/:clientId
  * @desc    Get widget configuration for a client (public endpoint)
  * @access  Public
  */
 router.get('/widget-config/:clientId', async (req, res) => {
   try {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With');
-    
     const { clientId } = req.params;
     
     if (!clientId) {
