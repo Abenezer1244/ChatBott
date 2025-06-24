@@ -6,17 +6,21 @@
 (function() {
   'use strict';
 
-  // Dynamic server URL detection
+  // Dynamic server URL detection - Universal solution
   const SERVER_URL = (function() {
-    const isDev = window.location.hostname === 'localhost' || 
-                  window.location.hostname === '127.0.0.1' ||
-                  window.location.hostname.includes('dev') ||
-                  window.location.hostname.includes('staging');
+    // Only use localhost for actual local development
+    // This covers true localhost development only
+    const isLocalDev = (window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' ||
+                        window.location.hostname === '0.0.0.0') &&
+                       (window.location.protocol === 'http:' || window.location.port);
     
-    if (isDev) {
+    if (isLocalDev) {
       return 'http://localhost:10000';
     }
     
+    // For all production, staging, testing, and live environments
+    // Always use the production server
     return 'https://chatbott-5579.onrender.com';
   })();
   
