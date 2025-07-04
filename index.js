@@ -236,6 +236,10 @@ app.use((req, res, next) => {
 });
 
 // ENHANCED MONGODB CONNECTION with retry logic
+// FIXED MONGODB CONNECTION in index.js
+// Remove deprecated options that are causing the MongoParseError
+
+// ENHANCED MONGODB CONNECTION with retry logic - FIXED VERSION
 async function connectToMongoDB() {
   const maxRetries = 5;
   let retries = 0;
@@ -244,33 +248,159 @@ async function connectToMongoDB() {
     try {
       console.log(`🔌 Attempting to connect to MongoDB (attempt ${retries + 1}/${maxRetries})`);
       
-      await mongoose.connect(MONGODB_URI, {
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 10000,
-        socketTimeoutMS: 45000,
-        maxPoolSize: 10,
-        bufferCommands: false,
-        bufferMaxEntries: 0
-      });
+      // FIXED: Remove deprecated options
+      const connectionOptions = {
+        // Core connection options
+        serverSelectionTimeoutMS: 10000,   // How long to try selecting a server
+        connectTimeoutMS: 15000,           // How long to wait for initial connection
+        socketTimeoutMS: 45000,            // How long to wait for responses
+        
+        // Connection pool options
+        maxPoolSize: 10,                   // Maximum number of connections
+        minPoolSize: 2,                    // Minimum number of connections
+        
+        // REMOVED DEPRECATED OPTIONS:
+        // bufferCommands: false,          // DEPRECATED - Remove this
+        // bufferMaxEntries: 0,            // DEPRECATED - Remove this (this was causing the error)
+        
+        // Retry options
+        retryWrites: true,
+        retryReads: true,
+        
+        // Additional stability options
+        heartbeatFrequencyMS: 10000,
+        maxIdleTimeMS: 30000,
+        
+        // Use stable API if available
+        useNewUrlParser: true,             // For compatibility
+        useUnifiedTopology: true           // For compatibility
+      };
+      
+      await mongoose.connect(MONGODB_URI, connectionOptions);
       
       console.log('✅ Connected to MongoDB successfully');
+      console.log(`📊 Connection state: ${mongoose.connection.readyState}`);
+      console.log(`🏷️ Database name: ${mongoose.connection.name}`);
+      
       return;
       
     } catch (err) {
       retries++;
       console.error(`❌ MongoDB connection attempt ${retries} failed:`, err.message);
       
+      // Log specific error types for debugging
+      if (err.name === 'MongoParseError') {
+        console.error('🚨 MongoDB Parse Error - Check connection string and options');
+        console.error('Connection URI format should be: mongodb+srv://username:password@cluster.mongodb.net/database');
+      } else if (err.name === 'MongoNetworkError') {
+        console.error('🌐 Network Error - Check internet connection and MongoDB Atlas whitelist');
+      } else if (err.name === 'MongoServerSelectionError') {
+        console.error('🎯 Server Selection Error - Check if MongoDB server is running');
+      }
+      
       if (retries >= maxRetries) {
         console.error('❌ Max retries reached. Exiting...');
+        console.error('💡 Troubleshooting tips:');
+        console.error('   1. Check your MONGODB_URI in .env file');
+        console.error('   2. Verify MongoDB Atlas IP whitelist');
+        console.error('   3. Check your network connection');
+        console.error('   4. Verify database credentials');
         process.exit(1);
       }
       
-      // Wait before retrying
-      console.log(`⏳ Retrying in 3 seconds...`);
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait before retrying with exponential backoff
+      const waitTime = Math.min(3000 * retries, 15000);
+      console.log(`⏳ Retrying in ${waitTime / 1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
 }
+
+// ENHANCED CONNECTION EVENT HANDLERS
+function setupMongoDBEventHandlers() {
+  // Connection successful
+  mongoose.connection.on('connected', () => {
+    console.log('🟢 MongoDB connected successfully');
+  });
+  
+  // Connection error
+  mongoose.connection.on('error', (err) => {
+    console.error(`❌ MongoDB connection error: ${err.message}`);
+    
+    // Log additional error context
+    if (err.name === 'MongoParseError') {
+      console.error('🔧 Fix: Check your MongoDB connection string and remove deprecated options');
+    }
+  });
+  
+  // Connection disconnected
+  mongoose.connection.on('disconnected', () => {
+    console.warn('⚠️ MongoDB disconnected');
+  });
+  
+  // Connection reconnected
+  mongoose.connection.on('reconnected', () => {
+    console.log('🔄 MongoDB reconnected');
+  });
+  
+  // Connection ready
+  mongoose.connection.on('open', () => {
+    console.log('✅ MongoDB connection is open and ready');
+  });
+  
+  // Connection closing
+  mongoose.connection.on('close', () => {
+    console.log('🔒 MongoDB connection closed');
+  });
+}
+
+// USAGE IN YOUR index.js - Replace the existing MongoDB connection code with this:
+
+// Load environment variables first
+dotenv.config();
+
+// Validate MongoDB URI
+if (!MONGODB_URI) {
+  console.error('❌ MONGODB_URI environment variable is required');
+  console.error('💡 Add MONGODB_URI to your .env file');
+  console.error('   Format: mongodb+srv://username:password@cluster.mongodb.net/database');
+  process.exit(1);
+}
+
+// Validate URI format
+if (!MONGODB_URI.startsWith('mongodb://') && !MONGODB_URI.startsWith('mongodb+srv://')) {
+  console.error('❌ Invalid MongoDB URI format');
+  console.error('💡 URI should start with mongodb:// or mongodb+srv://');
+  process.exit(1);
+}
+
+console.log('🔧 MongoDB URI validated successfully');
+
+// Setup event handlers
+setupMongoDBEventHandlers();
+
+// Connect to MongoDB
+connectToMongoDB();
+
+// ALTERNATIVE SIMPLE CONNECTION (if you prefer a simpler approach):
+/*
+async function simpleConnect() {
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 15000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 10,
+      retryWrites: true,
+      retryReads: true
+    });
+    console.log('✅ MongoDB connected successfully');
+  } catch (error) {
+    console.error('❌ MongoDB connection failed:', error.message);
+    process.exit(1);
+  }
+}
+*/
 
 // Connect to MongoDB
 connectToMongoDB();
