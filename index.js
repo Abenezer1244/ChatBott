@@ -1,6 +1,7 @@
 /**
- * Chatbot Leasing System - CORRECTED Main Server File
+ * Chatbot Leasing System - COMPLETE FIXED Main Server File
  * Production-ready implementation for leasing TestMyPrompt chatbots
+ * Fixed route ordering and enhanced error handling
  */
 
 // Core dependencies
@@ -40,7 +41,7 @@ app.use((req, res, next) => {
   }
 });
 
-// CORRECTED: More permissive CORS configuration for widget functionality
+// Enhanced CORS configuration for widget functionality
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (direct API calls, mobile apps, etc.)
@@ -73,7 +74,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// CORRECTED: Global preflight handler for all routes
+// Global preflight handler for all routes
 app.options('*', (req, res) => {
   const origin = req.get('origin') || '*';
   res.header('Access-Control-Allow-Origin', origin);
@@ -111,6 +112,7 @@ app.use(express.urlencoded({
 // Validate required environment variables
 if (!MONGODB_URI || !JWT_SECRET) {
   console.error('Missing required environment variables. Check your .env file.');
+  console.error('Required: MONGODB_URI, JWT_SECRET');
   process.exit(1);
 }
 
@@ -129,12 +131,13 @@ const apiLimiter = rateLimit({
                            req.path.includes('/usage/track') ||
                            req.path.includes('/auth/token') ||
                            req.path.includes('/health') ||
-                           req.path.includes('/test-connection');
+                           req.path.includes('/test-connection') ||
+                           req.path.includes('/debug');
     return adminKey === process.env.ADMIN_KEY || isWidgetRequest;
   }
 });
 
-// CORRECTED: Widget-friendly security headers
+// Widget-friendly security headers
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -158,7 +161,7 @@ app.use(helmet({
 
 app.use(compression());
 
-// CORRECTED: Serve static files with proper CORS headers
+// Serve static files with proper CORS headers
 app.use('/public', express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, path) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -169,20 +172,6 @@ app.use('/public', express.static(path.join(__dirname, 'public'), {
     }
   }
 }));
-
-// Apply rate limiting to API requests (excluding critical widget endpoints)
-app.use('/api', (req, res, next) => {
-  // Skip rate limiting for critical widget endpoints
-  if (req.path === '/validate' || 
-      req.path === '/usage/track' || 
-      req.path === '/auth/token' ||
-      req.path === '/widget-info' ||
-      req.path === '/health' ||
-      req.path === '/test-connection') {
-    return next();
-  }
-  return apiLimiter(req, res, next);
-});
 
 // Enhanced request logging middleware
 app.use((req, res, next) => {
@@ -197,14 +186,15 @@ app.use((req, res, next) => {
     console.log(`${req.method} ${req.originalUrl} ${status} ${duration}ms ${size}b - ${req.ip} - ${req.get('User-Agent')?.substring(0, 50) || 'Unknown'}`);
     
     // Log errors in detail for widget-related endpoints
-    if (status >= 400 && (req.originalUrl.includes('/validate') || req.originalUrl.includes('/widget'))) {
-      console.error(`Widget Error ${status}: ${req.method} ${req.originalUrl}`, {
+    if (status >= 400 && (req.originalUrl.includes('/validate') || req.originalUrl.includes('/widget') || req.originalUrl.includes('/clients'))) {
+      console.error(`API Error ${status}: ${req.method} ${req.originalUrl}`, {
         body: req.body,
         query: req.query,
         headers: {
           origin: req.headers.origin,
           referer: req.headers.referer,
-          'user-agent': req.headers['user-agent']
+          'user-agent': req.headers['user-agent'],
+          'x-admin-key': req.headers['x-admin-key'] ? 'provided' : 'missing'
         }
       });
     }
@@ -221,9 +211,9 @@ mongoose.connect(MONGODB_URI, {
   connectTimeoutMS: 10000,
   socketTimeoutMS: 45000
 })
-.then(() => console.log('Connected to MongoDB'))
+.then(() => console.log('✅ Connected to MongoDB'))
 .catch(err => {
-  console.error('MongoDB connection error:', err);
+  console.error('❌ MongoDB connection error:', err);
   process.exit(1);
 });
 
@@ -249,15 +239,56 @@ mongoose.connection.on('error', (err) => {
 // Use the external Client model
 const Client = require('./models/Client');
 
-// CORRECTED: Import and mount route modules properly
-const clientRoutes = require('./routes/clients');
+// Apply rate limiting to API requests (excluding critical widget endpoints)
+app.use('/api', (req, res, next) => {
+  // Skip rate limiting for critical widget endpoints
+  if (req.path === '/validate' || 
+      req.path === '/usage/track' || 
+      req.path === '/auth/token' ||
+      req.path === '/widget-info' ||
+      req.path === '/health' ||
+      req.path === '/test-connection' ||
+      req.path.startsWith('/debug')) {
+    return next();
+  }
+  return apiLimiter(req, res, next);
+});
+
+// CORRECTED: Import and mount route modules with proper order
 const authRoutes = require('./routes/auth');
 const validateRoutes = require('./routes/validate');
+const clientRoutes = require('./routes/clients');
 
-// Mount the route modules with proper middleware
-app.use('/api/clients', clientRoutes);
+// Mount the route modules with correct order - MORE SPECIFIC ROUTES FIRST
 app.use('/api/auth', authRoutes);
-app.use('/api', validateRoutes);
+app.use('/api', validateRoutes);  // This includes /api/validate, /api/lease/*, etc.
+app.use('/api/clients', clientRoutes);  // This should come last to avoid conflicts
+
+// Add debugging route to test if routes are working
+app.get('/api/debug/routes', (req, res) => {
+  res.json({
+    message: 'Routes are working correctly',
+    environment: NODE_ENV,
+    timestamp: new Date().toISOString(),
+    routeOrder: [
+      '1. /api/auth/* (auth routes)',
+      '2. /api/validate, /api/lease/*, etc. (validate routes)', 
+      '3. /api/clients/* (client routes - includes lease-dashboard)'
+    ],
+    availableEndpoints: [
+      'GET /api/health',
+      'POST /api/validate', 
+      'GET /api/clients/lease-dashboard',
+      'GET /api/clients',
+      'POST /api/clients',
+      'POST /api/auth/token',
+      'POST /api/lease/check',
+      'GET /api/stats'
+    ],
+    corsEnabled: true,
+    widgetSupported: true
+  });
+});
 
 // DOMAIN-BASED ADMIN ACCESS ROUTE
 app.get('/', (req, res) => {
@@ -277,33 +308,49 @@ app.get('/', (req, res) => {
       <html>
       <head>
         <title>Chatbot Leasing System</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
           body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
-            background-color: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
           }
           .container {
             text-align: center;
             padding: 2rem;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            margin: 20px;
           }
-          h1 { color: #333; }
-          p { color: #666; }
+          h1 { color: white; margin-bottom: 1rem; }
+          p { color: rgba(255, 255, 255, 0.9); margin-bottom: 1rem; }
+          .status { 
+            color: #4ade80; 
+            font-weight: 600;
+            font-size: 1.1em;
+          }
+          .version {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 1rem;
+          }
         </style>
       </head>
       <body>
         <div class="container">
-          <h1>Chatbot Leasing System</h1>
+          <h1>🤖 Chatbot Leasing System</h1>
           <p>Welcome to the Chatbot Leasing API</p>
+          <p>System Status: <span class="status">Online & Ready</span></p>
           <p>For admin access, please visit the designated admin domain.</p>
-          <p>System Status: <span style="color: green;">Online</span></p>
+          <div class="version">Version 1.0.3 | Production Ready</div>
         </div>
       </body>
       </html>
@@ -322,12 +369,13 @@ app.get('/admin', (req, res) => {
   } else {
     res.status(403).json({ 
       error: 'Admin panel can only be accessed from the authorized domain',
-      adminDomain: ADMIN_DOMAIN 
+      adminDomain: ADMIN_DOMAIN,
+      currentDomain: hostname 
     });
   }
 });
 
-// CORRECTED: Widget.js serving endpoint with enhanced headers
+// Widget.js serving endpoint with enhanced headers
 app.get('/widget.js', (req, res) => {
   console.log('Widget.js requested from:', req.get('origin') || req.get('referer') || 'unknown');
   
@@ -350,7 +398,7 @@ app.get('/widget.js', (req, res) => {
   }
 });
 
-// CORRECTED: Chat endpoint for real conversations
+// Chat endpoint for real conversations
 app.post('/api/chat', async (req, res) => {
   try {
     console.log('Chat request:', req.body);
@@ -376,12 +424,22 @@ app.post('/api/chat', async (req, res) => {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         console.log('Chat request from verified client:', decoded.clientId);
+        
+        // Check if client has valid access
+        const client = await Client.findOne({ clientId: decoded.clientId });
+        if (client && !client.hasValidAccess()) {
+          return res.status(403).json({
+            error: 'Access denied',
+            message: 'Your lease has expired. Please contact support.',
+            leaseStatus: client.getLeaseStatus()
+          });
+        }
       } catch (err) {
         console.warn('Invalid token in chat request:', err.message);
       }
     }
     
-    // For now, provide intelligent responses based on message content
+    // Provide intelligent responses based on message content
     let response;
     const lowerMessage = message.toLowerCase();
     
@@ -412,7 +470,7 @@ app.post('/api/chat', async (req, res) => {
     if (clientId) {
       try {
         const client = await Client.findOne({ clientId });
-        if (client) {
+        if (client && client.hasValidAccess()) {
           client.requestCount = (client.requestCount || 0) + 1;
           client.lastRequestDate = new Date();
           await client.save();
@@ -464,20 +522,37 @@ app.use((err, req, res, next) => {
     });
   }
   
+  if (err.name === 'MongoError' && err.code === 11000) {
+    return res.status(400).json({
+      error: 'Duplicate key error',
+      message: 'A record with this information already exists'
+    });
+  }
+  
   res.status(500).json({ 
     error: 'Something went wrong on the server',
     message: NODE_ENV === 'development' ? err.message : 'Internal server error',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    ...(NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 
 // Handle 404 errors
 app.use((req, res) => {
+  console.log(`404 - Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ 
     error: 'Not found',
     path: req.originalUrl,
     method: req.method,
-    message: 'The requested endpoint does not exist'
+    message: 'The requested endpoint does not exist',
+    availableEndpoints: [
+      'GET /api/health',
+      'POST /api/validate',
+      'GET /api/clients/lease-dashboard',
+      'GET /api/clients',
+      'POST /api/clients',
+      'POST /api/auth/token'
+    ]
   });
 });
 
@@ -487,10 +562,12 @@ const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📝 Environment: ${NODE_ENV}`);
   console.log(`🔧 Admin panel: ${ADMIN_DOMAIN}`);
-  console.log(`🤖 Widget endpoint available at: /widget.js`);
+  console.log(`🤖 Widget endpoint: /widget.js`);
   console.log(`📊 Health check: /api/health`);
   console.log(`💬 Chat endpoint: /api/chat`);
   console.log(`🔗 API base: /api`);
+  console.log(`🐛 Debug route: /api/debug/routes`);
+  console.log(`✅ All routes properly configured`);
   console.log(`=================================`);
 });
 

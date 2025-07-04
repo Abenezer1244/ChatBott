@@ -1,9 +1,367 @@
-// Client management routes WITH COMPLETE LEASE MANAGEMENT
+// Client management routes WITH COMPLETE LEASE MANAGEMENT - FIXED ROUTE ORDERING
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { verifyAdmin } = require('../middleware/auth');
 const Client = require('../models/Client');
+
+/**
+ * IMPORTANT: Route ordering matters! Specific routes must come BEFORE parameterized routes
+ * Order: /lease-dashboard -> /search/:query -> /bulk-* -> / -> /:clientId
+ */
+
+/**
+ * @route   GET /api/clients/lease-dashboard
+ * @desc    Get lease dashboard statistics - MOVED TO TOP TO PREVENT ROUTE CONFLICTS
+ * @access  Admin only
+ */
+router.get('/lease-dashboard', verifyAdmin, async (req, res) => {
+  try {
+    const now = new Date();
+    const threeDaysFromNow = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000));
+    const sevenDaysFromNow = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+    
+    console.log('Loading lease dashboard statistics...');
+    
+    // Get comprehensive lease statistics
+    const stats = {
+      totalClients: await Client.countDocuments(),
+      activeClients: await Client.countDocuments({ active: true }),
+      
+      // Lease status breakdown
+      leaseStatus: {
+        active: await Client.countDocuments({
+          'leaseConfig.expirationDate': { $gt: now },
+          'leaseConfig.isExpired': false,
+          active: true
+        }),
+        expired: await Client.countDocuments({
+          'leaseConfig.isExpired': true
+        }),
+        expiring3Days: await Client.countDocuments({
+          'leaseConfig.expirationDate': { $gt: now, $lt: threeDaysFromNow },
+          'leaseConfig.isExpired': false
+        }),
+        expiring7Days: await Client.countDocuments({
+          'leaseConfig.expirationDate': { $gt: now, $lt: sevenDaysFromNow },
+          'leaseConfig.isExpired': false
+        }),
+        gracePeriod: await Client.countDocuments({
+          'leaseConfig.expirationDate': { $lt: now },
+          'leaseConfig.isExpired': false
+        })
+      },
+      
+      // Duration breakdown
+      leaseDuration: {
+        sevenDays: await Client.countDocuments({ 'leaseConfig.duration': 7 }),
+        fourteenDays: await Client.countDocuments({ 'leaseConfig.duration': 14 }),
+        thirtyDays: await Client.countDocuments({ 'leaseConfig.duration': 30 })
+      },
+      
+      // Renewal statistics
+      renewals: {
+        totalRenewals: await Client.aggregate([
+          { $group: { _id: null, total: { $sum: '$leaseConfig.renewalCount' } } }
+        ]).then(result => result[0]?.total || 0),
+        autoRenewalEnabled: await Client.countDocuments({ 'leaseConfig.autoRenewal': true }),
+        clientsWithRenewals: await Client.countDocuments({ 'leaseConfig.renewalCount': { $gt: 0 } })
+      }
+    };
+    
+    // Get clients expiring soon
+    const expiringSoon = await Client.find({
+      'leaseConfig.expirationDate': { $gt: now, $lt: threeDaysFromNow },
+      'leaseConfig.isExpired': false,
+      active: true
+    })
+    .select('clientId name email leaseConfig requestCount')
+    .limit(10)
+    .sort({ 'leaseConfig.expirationDate': 1 });
+    
+    // Get recently expired clients
+    const recentlyExpired = await Client.find({
+      'leaseConfig.isExpired': true,
+      'leaseConfig.expirationDate': { $gt: new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)) }
+    })
+    .select('clientId name email leaseConfig')
+    .limit(10)
+    .sort({ 'leaseConfig.expirationDate': -1 });
+    
+    console.log('Lease dashboard stats loaded successfully:', {
+      totalClients: stats.totalClients,
+      activeLeases: stats.leaseStatus.active,
+      expiredLeases: stats.leaseStatus.expired
+    });
+    
+    res.json({
+      stats,
+      expiringSoon: expiringSoon.map(client => ({
+        clientId: client.clientId,
+        name: client.name,
+        email: client.email,
+        leaseStatus: client.getLeaseStatus(),
+        requestCount: client.requestCount || 0
+      })),
+      recentlyExpired: recentlyExpired.map(client => ({
+        clientId: client.clientId,
+        name: client.name,
+        email: client.email,
+        expirationDate: client.leaseConfig.expirationDate,
+        duration: client.leaseConfig.duration
+      })),
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Lease dashboard error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get lease dashboard',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+/**
+ * @route   GET /api/clients/search/:query
+ * @desc    Search clients by various fields including lease information - MOVED BEFORE /:clientId
+ * @access  Admin only
+ */
+router.get('/search/:query', verifyAdmin, async (req, res) => {
+  try {
+    const { query } = req.params;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    
+    if (!query || query.length < 2) {
+      return res.status(400).json({
+        error: 'Invalid search query',
+        message: 'Search query must be at least 2 characters long'
+      });
+    }
+    
+    const searchRegex = new RegExp(query, 'i');
+    
+    const clients = await Client.find({
+      $or: [
+        { name: searchRegex },
+        { email: searchRegex },
+        { clientId: searchRegex },
+        { 'chatbotConfig.widgetId': searchRegex },
+        { allowedDomains: { $in: [searchRegex] } }
+      ]
+    })
+    .limit(limit)
+    .select('clientId name email active requestCount lastRequestDate createdAt allowedDomains leaseConfig')
+    .lean();
+    
+    const results = clients.map(client => {
+      const tempClient = new Client(client);
+      const leaseStatus = tempClient.getLeaseStatus();
+      
+      return {
+        ...client,
+        matchType: 
+          client.name.toLowerCase().includes(query.toLowerCase()) ? 'name' :
+          client.email.toLowerCase().includes(query.toLowerCase()) ? 'email' :
+          client.clientId.toLowerCase().includes(query.toLowerCase()) ? 'clientId' :
+          'other',
+        leaseStatus: leaseStatus,
+        leaseInfo: {
+          duration: client.leaseConfig.duration,
+          expirationDate: client.leaseConfig.expirationDate,
+          renewalCount: client.leaseConfig.renewalCount,
+          isExpired: client.leaseConfig.isExpired
+        }
+      };
+    });
+    
+    res.json({
+      query: query,
+      results: results,
+      count: results.length,
+      limit: limit
+    });
+    
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Search failed'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/clients/bulk-update
+ * @desc    Update multiple clients at once including lease operations - MOVED BEFORE /:clientId
+ * @access  Admin only
+ */
+router.post('/bulk-update', verifyAdmin, async (req, res) => {
+  try {
+    const { clientIds, updates } = req.body;
+    
+    if (!clientIds || !Array.isArray(clientIds) || clientIds.length === 0) {
+      return res.status(400).json({
+        error: 'Client IDs array is required',
+        message: 'Provide an array of client IDs to update'
+      });
+    }
+    
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        error: 'Updates object is required',
+        message: 'Provide updates to apply to the clients'
+      });
+    }
+    
+    // Validate that only allowed fields are being updated
+    const allowedFields = ['active', 'allowedDomains', 'autoRenewal'];
+    const updateFields = Object.keys(updates);
+    const invalidFields = updateFields.filter(field => !allowedFields.includes(field));
+    
+    if (invalidFields.length > 0) {
+      return res.status(400).json({
+        error: 'Invalid update fields',
+        invalidFields: invalidFields,
+        allowedFields: allowedFields
+      });
+    }
+    
+    const updateQuery = {
+      ...updates,
+      updatedAt: new Date()
+    };
+    
+    // Handle autoRenewal updates for lease config
+    if (updates.autoRenewal !== undefined) {
+      updateQuery['leaseConfig.autoRenewal'] = updates.autoRenewal;
+      delete updateQuery.autoRenewal;
+    }
+    
+    const result = await Client.updateMany(
+      { clientId: { $in: clientIds } },
+      { $set: updateQuery }
+    );
+    
+    console.log(`Bulk update completed: ${result.modifiedCount} clients updated`);
+    
+    res.json({
+      message: 'Bulk update completed',
+      matched: result.matchedCount,
+      modified: result.modifiedCount,
+      clientIds: clientIds,
+      updates: updates,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Bulk update error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Bulk update failed'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/clients/bulk-lease-operation
+ * @desc    Perform lease operations on multiple clients - MOVED BEFORE /:clientId
+ * @access  Admin only
+ */
+router.post('/bulk-lease-operation', verifyAdmin, async (req, res) => {
+  try {
+    const { clientIds, operation, duration, additionalDays } = req.body;
+    
+    if (!clientIds || !Array.isArray(clientIds) || clientIds.length === 0) {
+      return res.status(400).json({
+        error: 'Client IDs array is required',
+        message: 'Provide an array of client IDs for lease operations'
+      });
+    }
+    
+    if (!operation || !['renew', 'extend'].includes(operation)) {
+      return res.status(400).json({
+        error: 'Invalid operation',
+        message: 'Operation must be "renew" or "extend"',
+        allowedOperations: ['renew', 'extend']
+      });
+    }
+    
+    if (operation === 'renew' && (!duration || ![7, 14, 30].includes(duration))) {
+      return res.status(400).json({
+        error: 'Invalid duration for renewal',
+        message: 'Duration must be 7, 14, or 30 days for renewal',
+        allowedDurations: [7, 14, 30]
+      });
+    }
+    
+    if (operation === 'extend' && (!additionalDays || additionalDays < 1 || additionalDays > 90)) {
+      return res.status(400).json({
+        error: 'Invalid additional days for extension',
+        message: 'Additional days must be between 1 and 90 for extension'
+      });
+    }
+    
+    const results = {
+      processed: 0,
+      successful: 0,
+      failed: 0,
+      errors: []
+    };
+    
+    // Process each client
+    for (const clientId of clientIds) {
+      try {
+        results.processed++;
+        
+        const client = await Client.findOne({ clientId });
+        
+        if (!client) {
+          results.failed++;
+          results.errors.push({
+            clientId: clientId,
+            error: 'Client not found'
+          });
+          continue;
+        }
+        
+        if (operation === 'renew') {
+          await client.renewLease(duration, 'admin-bulk');
+        } else if (operation === 'extend') {
+          await client.extendLease(additionalDays, 'admin-bulk');
+        }
+        
+        results.successful++;
+        console.log(`Bulk ${operation} completed for client: ${clientId}`);
+        
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          clientId: clientId,
+          error: error.message
+        });
+        console.error(`Bulk ${operation} failed for client ${clientId}:`, error);
+      }
+    }
+    
+    console.log(`Bulk lease operation completed:`, results);
+    
+    res.json({
+      message: `Bulk lease ${operation} operation completed`,
+      operation: operation,
+      results: results,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Bulk lease operation error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Bulk lease operation failed'
+    });
+  }
+});
 
 /**
  * @route   GET /api/clients
@@ -166,7 +524,8 @@ router.get('/', verifyAdmin, async (req, res) => {
     console.error('Error fetching clients:', error);
     res.status(500).json({ 
       error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to fetch clients'
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to fetch clients',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -356,7 +715,8 @@ router.post('/', verifyAdmin, async (req, res) => {
     
     res.status(500).json({ 
       error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to create client'
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to create client',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -422,7 +782,8 @@ router.get('/:clientId', verifyAdmin, async (req, res) => {
     console.error('Error fetching client:', error);
     res.status(500).json({ 
       error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to fetch client'
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to fetch client',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -644,7 +1005,8 @@ router.put('/:clientId', verifyAdmin, async (req, res) => {
     
     res.status(500).json({ 
       error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to update client'
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to update client',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -798,110 +1160,6 @@ router.get('/:clientId/lease-history', verifyAdmin, async (req, res) => {
     res.status(500).json({ 
       error: 'Internal server error',
       message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get lease history'
-    });
-  }
-});
-
-/**
- * @route   GET /api/clients/lease-dashboard
- * @desc    Get lease dashboard statistics
- * @access  Admin only
- */
-router.get('/lease-dashboard', verifyAdmin, async (req, res) => {
-  try {
-    const now = new Date();
-    const threeDaysFromNow = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000));
-    const sevenDaysFromNow = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
-    
-    // Get comprehensive lease statistics
-    const stats = {
-      totalClients: await Client.countDocuments(),
-      activeClients: await Client.countDocuments({ active: true }),
-      
-      // Lease status breakdown
-      leaseStatus: {
-        active: await Client.countDocuments({
-          'leaseConfig.expirationDate': { $gt: now },
-          'leaseConfig.isExpired': false,
-          active: true
-        }),
-        expired: await Client.countDocuments({
-          'leaseConfig.isExpired': true
-        }),
-        expiring3Days: await Client.countDocuments({
-          'leaseConfig.expirationDate': { $gt: now, $lt: threeDaysFromNow },
-          'leaseConfig.isExpired': false
-        }),
-        expiring7Days: await Client.countDocuments({
-          'leaseConfig.expirationDate': { $gt: now, $lt: sevenDaysFromNow },
-          'leaseConfig.isExpired': false
-        }),
-        gracePeriod: await Client.countDocuments({
-          'leaseConfig.expirationDate': { $lt: now },
-          'leaseConfig.isExpired': false
-        })
-      },
-      
-      // Duration breakdown
-      leaseDuration: {
-        sevenDays: await Client.countDocuments({ 'leaseConfig.duration': 7 }),
-        fourteenDays: await Client.countDocuments({ 'leaseConfig.duration': 14 }),
-        thirtyDays: await Client.countDocuments({ 'leaseConfig.duration': 30 })
-      },
-      
-      // Renewal statistics
-      renewals: {
-        totalRenewals: await Client.aggregate([
-          { $group: { _id: null, total: { $sum: '$leaseConfig.renewalCount' } } }
-        ]).then(result => result[0]?.total || 0),
-        autoRenewalEnabled: await Client.countDocuments({ 'leaseConfig.autoRenewal': true }),
-        clientsWithRenewals: await Client.countDocuments({ 'leaseConfig.renewalCount': { $gt: 0 } })
-      }
-    };
-    
-    // Get clients expiring soon
-    const expiringSoon = await Client.find({
-      'leaseConfig.expirationDate': { $gt: now, $lt: threeDaysFromNow },
-      'leaseConfig.isExpired': false,
-      active: true
-    })
-    .select('clientId name email leaseConfig requestCount')
-    .limit(10)
-    .sort({ 'leaseConfig.expirationDate': 1 });
-    
-    // Get recently expired clients
-    const recentlyExpired = await Client.find({
-      'leaseConfig.isExpired': true,
-      'leaseConfig.expirationDate': { $gt: new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)) }
-    })
-    .select('clientId name email leaseConfig')
-    .limit(10)
-    .sort({ 'leaseConfig.expirationDate': -1 });
-    
-    res.json({
-      stats,
-      expiringSoon: expiringSoon.map(client => ({
-        clientId: client.clientId,
-        name: client.name,
-        email: client.email,
-        leaseStatus: client.getLeaseStatus(),
-        requestCount: client.requestCount || 0
-      })),
-      recentlyExpired: recentlyExpired.map(client => ({
-        clientId: client.clientId,
-        name: client.name,
-        email: client.email,
-        expirationDate: client.leaseConfig.expirationDate,
-        duration: client.leaseConfig.duration
-      })),
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('Lease dashboard error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get lease dashboard'
     });
   }
 });
@@ -1175,246 +1433,6 @@ router.delete('/:clientId', verifyAdmin, async (req, res) => {
     res.status(500).json({ 
       error: 'Internal server error',
       message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to delete client'
-    });
-  }
-});
-
-/**
- * @route   GET /api/clients/search/:query
- * @desc    Search clients by various fields including lease information
- * @access  Admin only
- */
-router.get('/search/:query', verifyAdmin, async (req, res) => {
-  try {
-    const { query } = req.params;
-    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-    
-    if (!query || query.length < 2) {
-      return res.status(400).json({
-        error: 'Invalid search query',
-        message: 'Search query must be at least 2 characters long'
-      });
-    }
-    
-    const searchRegex = new RegExp(query, 'i');
-    
-    const clients = await Client.find({
-      $or: [
-        { name: searchRegex },
-        { email: searchRegex },
-        { clientId: searchRegex },
-        { 'chatbotConfig.widgetId': searchRegex },
-        { allowedDomains: { $in: [searchRegex] } }
-      ]
-    })
-    .limit(limit)
-    .select('clientId name email active requestCount lastRequestDate createdAt allowedDomains leaseConfig')
-    .lean();
-    
-    const results = clients.map(client => {
-      const tempClient = new Client(client);
-      const leaseStatus = tempClient.getLeaseStatus();
-      
-      return {
-        ...client,
-        matchType: 
-          client.name.toLowerCase().includes(query.toLowerCase()) ? 'name' :
-          client.email.toLowerCase().includes(query.toLowerCase()) ? 'email' :
-          client.clientId.toLowerCase().includes(query.toLowerCase()) ? 'clientId' :
-          'other',
-        leaseStatus: leaseStatus,
-        leaseInfo: {
-          duration: client.leaseConfig.duration,
-          expirationDate: client.leaseConfig.expirationDate,
-          renewalCount: client.leaseConfig.renewalCount,
-          isExpired: client.leaseConfig.isExpired
-        }
-      };
-    });
-    
-    res.json({
-      query: query,
-      results: results,
-      count: results.length,
-      limit: limit
-    });
-    
-  } catch (error) {
-    console.error('Search error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Search failed'
-    });
-  }
-});
-
-/**
- * @route   POST /api/clients/bulk-update
- * @desc    Update multiple clients at once including lease operations
- * @access  Admin only
- */
-router.post('/bulk-update', verifyAdmin, async (req, res) => {
-  try {
-    const { clientIds, updates } = req.body;
-    
-    if (!clientIds || !Array.isArray(clientIds) || clientIds.length === 0) {
-      return res.status(400).json({
-        error: 'Client IDs array is required',
-        message: 'Provide an array of client IDs to update'
-      });
-    }
-    
-    if (!updates || Object.keys(updates).length === 0) {
-      return res.status(400).json({
-        error: 'Updates object is required',
-        message: 'Provide updates to apply to the clients'
-      });
-    }
-    
-    // Validate that only allowed fields are being updated
-    const allowedFields = ['active', 'allowedDomains', 'autoRenewal'];
-    const updateFields = Object.keys(updates);
-    const invalidFields = updateFields.filter(field => !allowedFields.includes(field));
-    
-    if (invalidFields.length > 0) {
-      return res.status(400).json({
-        error: 'Invalid update fields',
-        invalidFields: invalidFields,
-        allowedFields: allowedFields
-      });
-    }
-    
-    const updateQuery = {
-      ...updates,
-      updatedAt: new Date()
-    };
-    
-    // Handle autoRenewal updates for lease config
-    if (updates.autoRenewal !== undefined) {
-      updateQuery['leaseConfig.autoRenewal'] = updates.autoRenewal;
-      delete updateQuery.autoRenewal;
-    }
-    
-    const result = await Client.updateMany(
-      { clientId: { $in: clientIds } },
-      { $set: updateQuery }
-    );
-    
-    console.log(`Bulk update completed: ${result.modifiedCount} clients updated`);
-    
-    res.json({
-      message: 'Bulk update completed',
-      matched: result.matchedCount,
-      modified: result.modifiedCount,
-      clientIds: clientIds,
-      updates: updates,
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('Bulk update error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Bulk update failed'
-    });
-  }
-});
-
-/**
- * @route   POST /api/clients/bulk-lease-operation
- * @desc    Perform lease operations on multiple clients
- * @access  Admin only
- */
-router.post('/bulk-lease-operation', verifyAdmin, async (req, res) => {
-  try {
-    const { clientIds, operation, duration, additionalDays } = req.body;
-    
-    if (!clientIds || !Array.isArray(clientIds) || clientIds.length === 0) {
-      return res.status(400).json({
-        error: 'Client IDs array is required',
-        message: 'Provide an array of client IDs for lease operations'
-      });
-    }
-    
-    if (!operation || !['renew', 'extend'].includes(operation)) {
-      return res.status(400).json({
-        error: 'Invalid operation',
-        message: 'Operation must be "renew" or "extend"',
-        allowedOperations: ['renew', 'extend']
-      });
-    }
-    
-    if (operation === 'renew' && (!duration || ![7, 14, 30].includes(duration))) {
-      return res.status(400).json({
-        error: 'Invalid duration for renewal',
-        message: 'Duration must be 7, 14, or 30 days for renewal',
-        allowedDurations: [7, 14, 30]
-      });
-    }
-    
-    if (operation === 'extend' && (!additionalDays || additionalDays < 1 || additionalDays > 90)) {
-      return res.status(400).json({
-        error: 'Invalid additional days for extension',
-        message: 'Additional days must be between 1 and 90 for extension'
-      });
-    }
-    
-    const results = {
-      processed: 0,
-      successful: 0,
-      failed: 0,
-      errors: []
-    };
-    
-    // Process each client
-    for (const clientId of clientIds) {
-      try {
-        results.processed++;
-        
-        const client = await Client.findOne({ clientId });
-        
-        if (!client) {
-          results.failed++;
-          results.errors.push({
-            clientId: clientId,
-            error: 'Client not found'
-          });
-          continue;
-        }
-        
-        if (operation === 'renew') {
-          await client.renewLease(duration, 'admin-bulk');
-        } else if (operation === 'extend') {
-          await client.extendLease(additionalDays, 'admin-bulk');
-        }
-        
-        results.successful++;
-        console.log(`Bulk ${operation} completed for client: ${clientId}`);
-        
-      } catch (error) {
-        results.failed++;
-        results.errors.push({
-          clientId: clientId,
-          error: error.message
-        });
-        console.error(`Bulk ${operation} failed for client ${clientId}:`, error);
-      }
-    }
-    
-    console.log(`Bulk lease operation completed:`, results);
-    
-    res.json({
-      message: `Bulk lease ${operation} operation completed`,
-      operation: operation,
-      results: results,
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('Bulk lease operation error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Bulk lease operation failed'
     });
   }
 });
