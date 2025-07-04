@@ -4,7 +4,8 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Client = require('../models/Client');
 
-// Global CORS middleware for all validate routes
+// Add this at the top of each route file, AFTER the requires but BEFORE any routes:
+
 router.use((req, res, next) => {
   const origin = req.headers.origin || '*';
   res.header('Access-Control-Allow-Origin', origin);
@@ -14,7 +15,7 @@ router.use((req, res, next) => {
   res.header('Access-Control-Max-Age', '86400');
   
   if (req.method === 'OPTIONS') {
-    console.log(`OPTIONS preflight for ${req.originalUrl} from ${origin}`);
+    console.log(`OPTIONS preflight handled for ${req.originalUrl} from ${origin}`);
     return res.status(200).end();
   }
   
@@ -1240,6 +1241,45 @@ router.post('/lease/bulk-renew', async (req, res) => {
     res.status(500).json({ 
       error: 'Internal server error',
       message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to bulk renew leases'
+    });
+  }
+});
+
+/**
+ * @route   POST /api/lease/expire-clients
+ * @desc    Manually expire clients past their lease (admin only)
+ * @access  Admin
+ */
+router.post('/lease/expire-clients', async (req, res) => {
+  try {
+    const { adminKey } = req.body;
+    
+    if (!adminKey || adminKey !== process.env.ADMIN_KEY) {
+      return res.status(401).json({ 
+        error: 'Invalid admin key',
+        message: 'Admin access is required'
+      });
+    }
+    
+    console.log('Manual lease expiration process started by admin');
+    
+    // Run the expiration process using the Client model method
+    const results = await Client.expireClients();
+    
+    console.log(`Manual lease expiration process completed:`, results);
+    
+    res.json({
+      message: 'Lease expiration process completed',
+      results: results,
+      summary: `Processed ${results.processed} clients, expired ${results.expired}`,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Manual lease expiration process error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to expire clients'
     });
   }
 });

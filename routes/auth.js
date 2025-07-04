@@ -5,6 +5,24 @@ const jwt = require('jsonwebtoken');
 const { verifyAdmin } = require('../middleware/auth');
 const Client = require('../models/Client');
 
+// Add this at the top of each route file, AFTER the requires but BEFORE any routes:
+
+router.use((req, res, next) => {
+  const origin = req.headers.origin || '*';
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-key, x-access-token');
+  res.header('Access-Control-Allow-Credentials', 'false');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  if (req.method === 'OPTIONS') {
+    console.log(`OPTIONS preflight handled for ${req.originalUrl} from ${origin}`);
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
 /**
  * @route   POST /api/auth/token
  * @desc    Generate a new token for a client - FIXED VERSION

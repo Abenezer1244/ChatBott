@@ -6,6 +6,8 @@ const { verifyAdmin } = require('../middleware/auth');
 const Client = require('../models/Client');
 
 // CRITICAL FIX: Enhanced CORS middleware for all client routes
+// Add this at the top of each route file, AFTER the requires but BEFORE any routes:
+
 router.use((req, res, next) => {
   const origin = req.headers.origin || '*';
   res.header('Access-Control-Allow-Origin', origin);
@@ -14,7 +16,6 @@ router.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'false');
   res.header('Access-Control-Max-Age', '86400');
   
-  // CRITICAL: Handle OPTIONS preflight requests immediately
   if (req.method === 'OPTIONS') {
     console.log(`OPTIONS preflight handled for ${req.originalUrl} from ${origin}`);
     return res.status(200).end();
@@ -1245,7 +1246,6 @@ router.delete('/:clientId', verifyAdmin, async (req, res) => {
   }
 });
 
-// Additional lease management routes
 /**
  * @route   POST /api/clients/:clientId/renew-lease
  * @desc    Renew lease for a specific client
@@ -1301,6 +1301,11 @@ router.post('/:clientId/renew-lease', verifyAdmin, async (req, res) => {
   }
 });
 
+/**
+ * @route   POST /api/clients/:clientId/extend-lease
+ * @desc    Extend lease for a specific client
+ * @access  Admin only
+ */
 /**
  * @route   POST /api/clients/:clientId/extend-lease
  * @desc    Extend lease for a specific client
