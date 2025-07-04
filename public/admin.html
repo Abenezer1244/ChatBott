@@ -1430,26 +1430,427 @@
       fetchClients(currentPage);
     });
 
-    // Placeholder functions for modal operations
-    function openEditClientModal(clientId) {
-      // Placeholder - implement modal logic
-      console.log('Edit client:', clientId);
+    // Complete Action Button Functions Implementation
+
+    // Open edit client modal with full implementation
+    async function openEditClientModal(clientId) {
+      try {
+        const client = clients.find(c => c.clientId === clientId);
+        if (!client) {
+          showNotification('Error', 'Client not found', 'error');
+          return;
+        }
+        
+        // Populate edit form with client data
+        document.getElementById('edit-client-id').value = client.clientId;
+        document.getElementById('edit-client-name').value = client.name;
+        document.getElementById('edit-allowed-domains').value = client.allowedDomains ? client.allowedDomains.join(', ') : '';
+        document.getElementById('edit-client-active').checked = client.active;
+        document.getElementById('edit-auto-renewal').checked = client.leaseInfo && client.leaseInfo.autoRenewal || false;
+        
+        // Set customization values
+        const customization = client.chatbotConfig && client.chatbotConfig.customization || {};
+        document.getElementById('edit-primary-color').value = customization.primaryColor || '#0084ff';
+        document.getElementById('edit-secondary-color').value = customization.secondaryColor || '#ffffff';
+        document.getElementById('edit-header-text').value = customization.headerText || 'Chat with us';
+        
+        // Show the modal
+        editClientModal.show();
+        
+      } catch (error) {
+        console.error('Error opening edit modal:', error);
+        showNotification('Error', 'Failed to open edit dialog', 'error');
+      }
     }
 
-    function openLeaseManagementModal(clientId) {
-      // Placeholder - implement modal logic
-      console.log('Manage lease for client:', clientId);
+    // Save client changes implementation
+    document.getElementById('save-client-changes').addEventListener('click', async function() {
+      const clientId = document.getElementById('edit-client-id').value;
+      const allowedDomainsStr = document.getElementById('edit-allowed-domains').value.trim();
+      const active = document.getElementById('edit-client-active').checked;
+      const autoRenewal = document.getElementById('edit-auto-renewal').checked;
+      
+      let allowedDomains = [];
+      if (allowedDomainsStr) {
+        allowedDomains = allowedDomainsStr.split(',').map(domain => domain.trim());
+      }
+      
+      const customization = {
+        primaryColor: document.getElementById('edit-primary-color').value,
+        secondaryColor: document.getElementById('edit-secondary-color').value,
+        headerText: document.getElementById('edit-header-text').value.trim()
+      };
+      
+      toggleSpinner('save-spinner', true);
+      
+      try {
+        const response = await fetch(API_BASE_URL + '/api/clients/' + clientId, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          },
+          body: JSON.stringify({
+            active,
+            allowedDomains,
+            customization,
+            autoRenewal,
+            adminKey: ADMIN_KEY
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Server responded with status: ' + response.status);
+        }
+        
+        await fetchClients(currentPage);
+        editClientModal.hide();
+        showNotification('Success', 'Client updated successfully');
+      } catch (error) {
+        console.error('Error updating client:', error);
+        showNotification('Error', 'Failed to update client: ' + error.message, 'error');
+      } finally {
+        toggleSpinner('save-spinner', false);
+      }
+    });
+
+    // Open lease management modal with full implementation
+    async function openLeaseManagementModal(clientId) {
+      try {
+        const client = clients.find(c => c.clientId === clientId);
+        if (!client) {
+          showNotification('Error', 'Client not found', 'error');
+          return;
+        }
+        
+        const leaseStatus = client.leaseStatus || {};
+        const leaseInfo = client.leaseInfo || {};
+        
+        // Populate modal with client and lease information
+        document.getElementById('modal-client-name').textContent = client.name;
+        document.getElementById('modal-client-email').textContent = client.email;
+        document.getElementById('modal-client-id').textContent = client.clientId;
+        document.getElementById('modal-lease-status').innerHTML = getLeaseStatusBadge(leaseStatus);
+        document.getElementById('modal-days-remaining').textContent = leaseStatus.daysRemaining >= 0 ? leaseStatus.daysRemaining : 'Expired';
+        document.getElementById('modal-expiration-date').textContent = leaseInfo.expirationDate ? new Date(leaseInfo.expirationDate).toLocaleDateString() : 'N/A';
+        document.getElementById('modal-renewal-count').textContent = leaseInfo.renewalCount || 0;
+        
+        // Set form values
+        document.getElementById('renew-client-id').value = clientId;
+        document.getElementById('extend-client-id').value = clientId;
+        
+        // Load lease history
+        await loadLeaseHistory(clientId);
+        
+        leaseManagementModal.show();
+        
+      } catch (error) {
+        console.error('Error opening lease management modal:', error);
+        showNotification('Error', 'Failed to open lease management', 'error');
+      }
     }
 
-    function toggleClientStatus(clientId, activate, buttonElement) {
-      // Placeholder - implement toggle logic
-      console.log('Toggle client status:', clientId, activate);
+    // Load lease history for a client
+    async function loadLeaseHistory(clientId) {
+      try {
+        const response = await fetch(API_BASE_URL + '/api/clients/' + clientId + '/lease-history', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Server responded with status: ' + response.status);
+        }
+        
+        const data = await response.json();
+        const historyContainer = document.getElementById('lease-history-container');
+        
+        if (data.leaseHistory && data.leaseHistory.length > 0) {
+          let historyHtml = '<div class="table-responsive"><table class="table table-sm">';
+          historyHtml += '<thead><tr><th>Start Date</th><th>End Date</th><th>Duration</th><th>Type</th><th>Renewed By</th></tr></thead><tbody>';
+          
+          data.leaseHistory.forEach(lease => {
+            historyHtml += '<tr>' +
+              '<td>' + new Date(lease.startDate).toLocaleDateString() + '</td>' +
+              '<td>' + new Date(lease.endDate).toLocaleDateString() + '</td>' +
+              '<td>' + lease.duration + ' days</td>' +
+              '<td><span class="badge bg-secondary">' + lease.renewalType + '</span></td>' +
+              '<td>' + (lease.renewedBy || 'N/A') + '</td>' +
+              '</tr>';
+          });
+          
+          historyHtml += '</tbody></table></div>';
+          historyContainer.innerHTML = historyHtml;
+        } else {
+          historyContainer.innerHTML = '<div class="text-muted">No lease history available.</div>';
+        }
+      } catch (error) {
+        console.error('Error loading lease history:', error);
+        document.getElementById('lease-history-container').innerHTML = '<div class="text-danger">Failed to load lease history.</div>';
+      }
     }
 
-    function deleteClient(clientId, buttonElement) {
-      // Placeholder - implement delete logic
-      console.log('Delete client:', clientId);
+    // Renew lease form handler
+    document.getElementById('renew-lease-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const clientId = document.getElementById('renew-client-id').value;
+      const duration = parseInt(document.getElementById('renew-duration').value);
+      
+      toggleSpinner('renew-spinner', true);
+      
+      try {
+        const response = await fetch(API_BASE_URL + '/api/clients/' + clientId + '/renew-lease', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          },
+          body: JSON.stringify({
+            duration: duration,
+            adminKey: ADMIN_KEY
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Server responded with status: ' + response.status);
+        }
+        
+        const data = await response.json();
+        
+        // Refresh clients and close modal
+        await fetchClients(currentPage);
+        await loadLeaseStats();
+        leaseManagementModal.hide();
+        
+        showNotification('Success', 'Lease renewed successfully for ' + duration + ' days');
+        
+      } catch (error) {
+        console.error('Error renewing lease:', error);
+        showNotification('Error', 'Failed to renew lease: ' + error.message, 'error');
+      } finally {
+        toggleSpinner('renew-spinner', false);
+      }
+    });
+
+    // Extend lease form handler
+    document.getElementById('extend-lease-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const clientId = document.getElementById('extend-client-id').value;
+      const additionalDays = parseInt(document.getElementById('extend-days').value);
+      
+      toggleSpinner('extend-spinner', true);
+      
+      try {
+        const response = await fetch(API_BASE_URL + '/api/clients/' + clientId + '/extend-lease', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          },
+          body: JSON.stringify({
+            additionalDays: additionalDays,
+            adminKey: ADMIN_KEY
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Server responded with status: ' + response.status);
+        }
+        
+        const data = await response.json();
+        
+        // Refresh clients and close modal
+        await fetchClients(currentPage);
+        await loadLeaseStats();
+        leaseManagementModal.hide();
+        
+        showNotification('Success', 'Lease extended by ' + additionalDays + ' days');
+        
+      } catch (error) {
+        console.error('Error extending lease:', error);
+        showNotification('Error', 'Failed to extend lease: ' + error.message, 'error');
+      } finally {
+        toggleSpinner('extend-spinner', false);
+      }
+    });
+
+    // Toggle client status implementation
+    async function toggleClientStatus(clientId, activate, buttonElement) {
+      if (buttonElement) {
+        buttonElement.disabled = true;
+      }
+      
+      try {
+        const response = await fetch(API_BASE_URL + '/api/clients/' + clientId, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          },
+          body: JSON.stringify({
+            active: activate,
+            adminKey: ADMIN_KEY
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Server responded with status: ' + response.status);
+        }
+        
+        await fetchClients(currentPage);
+        await loadLeaseStats();
+        
+        showNotification('Success', 'Client ' + (activate ? 'activated' : 'deactivated') + ' successfully');
+      } catch (error) {
+        console.error('Error toggling client status:', error);
+        showNotification('Error', 'Failed to update client status: ' + error.message, 'error');
+      } finally {
+        if (buttonElement) {
+          buttonElement.disabled = false;
+        }
+      }
     }
+
+    // Delete client implementation
+    async function deleteClient(clientId, buttonElement) {
+      // Get client name for confirmation
+      const client = clients.find(c => c.clientId === clientId);
+      const clientName = client ? client.name : clientId;
+      
+      if (!confirm('Are you sure you want to permanently delete client "' + clientName + '" (' + clientId + ')?\n\nThis action cannot be undone and will remove all lease history.')) {
+        return;
+      }
+      
+      if (buttonElement) {
+        buttonElement.disabled = true;
+      }
+      
+      try {
+        const response = await fetch(API_BASE_URL + '/api/clients/' + clientId + '?confirm=true', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Server responded with status: ' + response.status);
+        }
+        
+        const data = await response.json();
+        
+        // If we're on the last page and this was the only client, go back a page
+        const shouldGoBack = clients.length === 1 && currentPage > 1;
+        
+        await fetchClients(shouldGoBack ? currentPage - 1 : currentPage);
+        await loadLeaseStats();
+        
+        showNotification('Success', 'Client "' + clientName + '" deleted successfully');
+      } catch (error) {
+        console.error('Error deleting client:', error);
+        showNotification('Error', 'Failed to delete client: ' + error.message, 'error');
+      } finally {
+        if (buttonElement) {
+          buttonElement.disabled = false;
+        }
+      }
+    }
+
+    // Bulk expire clients implementation
+    document.getElementById('expire-clients-btn').addEventListener('click', async function() {
+      if (!confirm('Are you sure you want to expire all overdue client leases?\n\nThis will deactivate clients whose lease grace period has ended.')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(API_BASE_URL + '/api/lease/expire-clients', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          },
+          body: JSON.stringify({
+            adminKey: ADMIN_KEY
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Server responded with status: ' + response.status);
+        }
+        
+        const data = await response.json();
+        
+        await fetchClients(currentPage);
+        await loadLeaseStats();
+        
+        showNotification('Success', 'Bulk expiration completed: ' + data.results.summary);
+        
+      } catch (error) {
+        console.error('Error expiring clients:', error);
+        showNotification('Error', 'Failed to expire clients: ' + error.message, 'error');
+      }
+    });
+
+    // Add keyboard shortcuts for power users
+    document.addEventListener('keydown', function(e) {
+      // Ctrl/Cmd + R for refresh
+      if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        fetchClients(currentPage);
+        loadLeaseStats();
+        showNotification('Refreshed', 'Data refreshed manually');
+      }
+      
+      // Escape to close modals
+      if (e.key === 'Escape') {
+        const modals = document.querySelectorAll('.modal.show');
+        modals.forEach(modal => {
+          const modalInstance = bootstrap.Modal.getInstance(modal);
+          if (modalInstance) {
+            modalInstance.hide();
+          }
+        });
+      }
+    });
+
+    // Auto-refresh lease stats every 5 minutes
+    setInterval(loadLeaseStats, 5 * 60 * 1000);
+
+    // Auto-refresh client list every 2 minutes to catch lease status changes
+    setInterval(() => {
+      fetchClients(currentPage);
+    }, 2 * 60 * 1000);
+
+    // Enhanced error handling for network issues
+    window.addEventListener('online', function() {
+      showNotification('Connected', 'Internet connection restored', 'success');
+      // Refresh data when connection is restored
+      setTimeout(() => {
+        fetchClients(currentPage);
+        loadLeaseStats();
+      }, 1000);
+    });
+
+    window.addEventListener('offline', function() {
+      showNotification('Offline', 'No internet connection', 'warning');
+    });
+
+    console.log('✅ All action button functions loaded successfully');
+  </script>
+</body>
+</html>
   </script>
 </body>
 </html>
