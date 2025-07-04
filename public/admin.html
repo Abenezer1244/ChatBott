@@ -1161,6 +1161,9 @@ window.addEventListener('offline', function() {
   showNotification('Offline', 'No internet connection', 'warning');
 });
 
+
+
+
 // Add retry functionality to the page
 function addRetryButton() {
   const retryButton = document.createElement('button');
@@ -1935,48 +1938,173 @@ async function fetchClients(page = 1, limit = pageSize) {
     });
 
     // Generate token for client
-    document.getElementById('generate-token-form').addEventListener('submit', async function(e) {
-      e.preventDefault();
+  document.getElementById('generate-token-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const clientId = document.getElementById('token-client-id').value;
+    if (!clientId) {
+      showNotification('Error', 'Please select a client', 'error');
+      return;
+    }
+    
+    console.log('=== TOKEN GENERATION START ===');
+    console.log('Selected client ID:', clientId);
+    
+    toggleSpinner('token-spinner', true);
+    
+    try {
+      console.log('Sending token generation request...');
       
-      const clientId = document.getElementById('token-client-id').value;
-      if (!clientId) {
-        showNotification('Error', 'Please select a client', 'error');
-        return;
-      }
+      const requestBody = {
+        clientId: clientId,
+        adminKey: ADMIN_KEY
+      };
       
-      toggleSpinner('token-spinner', true);
+      console.log('Request body:', requestBody);
       
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/token`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            clientId,
-            adminKey: ADMIN_KEY
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
+      const response = await fetch(`${API_BASE_URL}/api/auth/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          const responseText = await response.text();
+          console.error('Failed to parse error response:', parseError);
+          console.error('Raw response:', responseText);
+          throw new Error(`HTTP ${response.status}: ${response.statusText || 'Unknown error'}`);
         }
-  
-        currentClientId = clientId;
-        currentToken = data.token;
         
-        document.getElementById('token-display').textContent = data.token;
-        document.getElementById('token-result').style.display = 'block';
-        
-        showNotification('Success', 'Token generated successfully');
-      } catch (error) {
-        console.error('Error generating token:', error);
-        showNotification('Error', 'Failed to generate token: ' + error.message, 'error');
-      } finally {
-        toggleSpinner('token-spinner', false);
+        console.error('Token generation API error:', errorData);
+        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
-    });
+      
+      // FIXED: Parse response data properly
+      const data = await response.json();
+      console.log('Token generation response:', data);
+      
+      // Validate response structure
+      if (!data || !data.token) {
+        console.error('Invalid response structure:', data);
+        throw new Error('Invalid response: missing token');
+      }
+      
+      // FIXED: Set global variables properly
+      currentClientId = clientId;
+      currentToken = data.token;
+      
+      // Display token and additional information
+      document.getElementById('token-display').textContent = data.token;
+      document.getElementById('token-result').style.display = 'block';
+      
+      // Add additional token information if available
+      if (data.client || data.lease || data.widget) {
+        let additionalInfo = '';
+        
+        if (data.client) {
+          additionalInfo += `\nClient: ${data.client.name}`;
+          additionalInfo += `\nEmail: ${data.client.email}`;
+          additionalInfo += `\nWidget ID: ${data.client.widgetId}`;
+        }
+        
+        if (data.lease) {
+          additionalInfo += `\n\nLease Status: ${data.lease.status}`;
+          additionalInfo += `\nDays Remaining: ${data.lease.daysRemaining}`;
+          additionalInfo += `\nExpiration: ${new Date(data.lease.expirationDate).toLocaleDateString()}`;
+        }
+        
+        if (data.warning) {
+          additionalInfo += `\n\nWarning: ${data.warning.message}`;
+        }
+        
+        // Create or update info section
+        let infoSection = document.getElementById('token-info');
+        if (!infoSection) {
+          infoSection = document.createElement('div');
+          infoSection.id = 'token-info';
+          infoSection.className = 'mt-3 p-3 bg-light rounded';
+          document.getElementById('token-result').appendChild(infoSection);
+        }
+        
+        infoSection.innerHTML = `
+          <h6>Token Details:</h6>
+          <pre style="font-size: 0.8rem; white-space: pre-wrap;">${additionalInfo}</pre>
+        `;
+      }
+      
+      // Show integration code if available
+      if (data.widget && data.widget.integrationCode) {
+        let codeSection = document.getElementById('integration-code');
+        if (!codeSection) {
+          codeSection = document.createElement('div');
+          codeSection.id = 'integration-code';
+          codeSection.className = 'mt-3';
+          document.getElementById('token-result').appendChild(codeSection);
+        }
+        
+        codeSection.innerHTML = `
+          <h6>Integration Code:</h6>
+          <div class="token-display" style="max-height: 200px; overflow-y: auto;">
+            ${escapeHtml(data.widget.integrationCode)}
+          </div>
+          <button class="btn btn-sm btn-outline-info mt-2" onclick="copyIntegrationCode()">
+            <i class="bi bi-code-slash"></i> Copy Integration Code
+          </button>
+        `;
+        
+        // Store integration code globally
+        window.currentIntegrationCode = data.widget.integrationCode;
+      }
+      
+      console.log('=== TOKEN GENERATION SUCCESS ===');
+      showNotification('Success', 'Token generated successfully');
+      
+      // Show warning notifications if present
+      if (data.warning) {
+        setTimeout(() => {
+          showNotification('Warning', data.warning.message, 'warning');
+        }, 1000);
+      }
+      
+    } catch (error) {
+      console.error('=== TOKEN GENERATION ERROR ===');
+      console.error('Error details:', error);
+      console.error('Error stack:', error.stack);
+      
+      let errorMessage = 'Failed to generate token';
+      
+      if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (error.message.includes('Invalid admin key')) {
+        errorMessage = 'Authentication failed. Please refresh the page.';
+      } else if (error.message.includes('Client not found')) {
+        errorMessage = 'Selected client not found. Please refresh and try again.';
+      } else if (error.message.includes('Lease expired')) {
+        errorMessage = 'Cannot generate token: Client lease has expired.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showNotification('Error', errorMessage, 'error');
+      
+      // Hide token result section on error
+      document.getElementById('token-result').style.display = 'none';
+      
+    } finally {
+      toggleSpinner('token-spinner', false);
+      console.log('=== TOKEN GENERATION COMPLETE ===');
+    }
+  });
 
     // Copy token to clipboard
     document.getElementById('copy-token').addEventListener('click', function() {
@@ -1990,155 +2118,211 @@ async function fetchClients(page = 1, limit = pageSize) {
         });
     });
 
-    // Copy embed code to clipboard
-    document.getElementById('copy-embed-code').addEventListener('click', function() {
-      const serverUrl = API_BASE_URL || 'https://chatbott-5579.onrender.com';
-      const embedCode = `<script src="${serverUrl}/widget.js"><\/script>
+// Copy embed code to clipboard - ENHANCED VERSION
+document.getElementById('copy-embed-code').addEventListener('click', function() {
+  if (!currentToken || !currentClientId) {
+    showNotification('Error', 'No token or client ID available', 'error');
+    return;
+  }
+  
+  const serverUrl = API_BASE_URL || window.location.origin;
+  const embedCode = `<script src="${serverUrl}/widget.js"></script>
 <script>
   window.MyChatWidget.init({
     token: "${currentToken}",
     clientId: "${currentClientId}"
   });
-<\/script>`;
+</script>`;
+  
+  navigator.clipboard.writeText(embedCode)
+    .then(() => {
+      showNotification('Copied', 'Embed code copied to clipboard');
       
-      navigator.clipboard.writeText(embedCode)
-        .then(() => {
-          showNotification('Copied', 'Embed code copied to clipboard');
-        })
-        .catch(err => {
-          console.error('Failed to copy embed code:', err);
-          showNotification('Error', 'Failed to copy to clipboard', 'error');
-        });
+      // Visual feedback
+      const button = this;
+      const originalText = button.innerHTML;
+      button.innerHTML = '<i class="bi bi-check"></i> Copied!';
+      button.classList.add('btn-success');
+      button.classList.remove('btn-outline-primary');
+      
+      setTimeout(() => {
+        button.innerHTML = originalText;
+        button.classList.remove('btn-success');
+        button.classList.add('btn-outline-primary');
+      }, 2000);
+    })
+    .catch(err => {
+      console.error('Failed to copy embed code:', err);
+      showNotification('Error', 'Failed to copy to clipboard', 'error');
     });
+});
 
-    // Refresh clients list
-    document.getElementById('refresh-clients').addEventListener('click', function() {
-      fetchClients(currentPage);
-      loadLeaseStats();
+// Copy integration code function
+function copyIntegrationCode() {
+  if (!window.currentIntegrationCode) {
+    showNotification('Error', 'No integration code available', 'error');
+    return;
+  }
+  
+  navigator.clipboard.writeText(window.currentIntegrationCode)
+    .then(() => {
+      showNotification('Copied', 'Integration code copied to clipboard');
+    })
+    .catch(err => {
+      console.error('Failed to copy integration code:', err);
+      showNotification('Error', 'Failed to copy to clipboard', 'error');
     });
+}
 
-    // Expire clients button handler
-    document.getElementById('expire-clients-btn').addEventListener('click', async function() {
-      if (!confirm('Are you sure you want to expire all overdue clients? This action cannot be undone.')) {
-        return;
+// Helper function to escape HTML
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Enhanced token validation function
+async function validateToken(token) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ token })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+    
+  } catch (error) {
+    console.error('Token validation error:', error);
+    return null;
+  }
+}
+
+// Test token functionality
+async function testGeneratedToken() {
+  if (!currentToken) {
+    showNotification('Error', 'No token to test', 'error');
+    return;
+  }
+  
+  console.log('Testing generated token...');
+  
+  try {
+    const validation = await validateToken(currentToken);
+    
+    if (validation && validation.valid) {
+      showNotification('Success', 'Token is valid and working!', 'success');
+      console.log('Token validation result:', validation);
+    } else {
+      showNotification('Warning', 'Token may not be valid', 'warning');
+    }
+    
+  } catch (error) {
+    console.error('Token test error:', error);
+    showNotification('Error', 'Failed to test token', 'error');
+  }
+}
+
+// Add test button to token result section (optional)
+function addTokenTestButton() {
+  const tokenResult = document.getElementById('token-result');
+  if (tokenResult && !document.getElementById('test-token-btn')) {
+    const testButton = document.createElement('button');
+    testButton.id = 'test-token-btn';
+    testButton.className = 'btn btn-sm btn-outline-info';
+    testButton.innerHTML = '<i class="bi bi-shield-check"></i> Test Token';
+    testButton.onclick = testGeneratedToken;
+    
+    const actionButtons = tokenResult.querySelector('.action-buttons');
+    if (actionButtons) {
+      actionButtons.appendChild(testButton);
+    }
+  }
+}
+
+// Enhanced error handling for token generation
+function handleTokenGenerationError(error, context = '') {
+  console.error(`Token Generation Error ${context}:`, error);
+  
+  // Log additional debugging information
+  console.error('Client ID:', currentClientId || 'not set');
+  console.error('Admin Key Present:', !!ADMIN_KEY);
+  console.error('API Base URL:', API_BASE_URL);
+  console.error('Browser Info:', {
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    platform: navigator.platform
+  });
+  
+  // Show user-friendly error
+  let userMessage = 'An unexpected error occurred while generating the token.';
+  
+  if (error.message.includes('network') || error.message.includes('fetch')) {
+    userMessage = 'Network error: Please check your internet connection and try again.';
+  } else if (error.message.includes('timeout')) {
+    userMessage = 'Request timed out: The server took too long to respond.';
+  } else if (error.message.includes('401') || error.message.includes('unauthorized')) {
+    userMessage = 'Authentication failed: Please refresh the page and try again.';
+  } else if (error.message.includes('403') || error.message.includes('forbidden')) {
+    userMessage = 'Access denied: You may not have permission to generate tokens for this client.';
+  } else if (error.message.includes('404')) {
+    userMessage = 'Client not found: The selected client may have been deleted.';
+  } else if (error.message.includes('500')) {
+    userMessage = 'Server error: Please contact support if this issue persists.';
+  }
+  
+  showNotification('Error', userMessage, 'error');
+}
+
+// Auto-refresh client dropdown when clients change
+function refreshClientDropdown() {
+  updateClientDropdown();
+  
+  // If no clients are available, show helpful message
+  const dropdown = document.getElementById('token-client-id');
+  if (dropdown && dropdown.options.length <= 1) {
+    const option = document.createElement('option');
+    option.value = "";
+    option.textContent = "No active clients available - create a client first";
+    option.disabled = true;
+    dropdown.appendChild(option);
+  }
+}
+
+// Initialize token generation enhancements
+document.addEventListener('DOMContentLoaded', function() {
+  // Refresh client dropdown initially
+  setTimeout(refreshClientDropdown, 1000);
+  
+  // Add event listeners for enhanced functionality
+  const tokenClientSelect = document.getElementById('token-client-id');
+  if (tokenClientSelect) {
+    tokenClientSelect.addEventListener('change', function() {
+      // Clear previous token result when client changes
+      const tokenResult = document.getElementById('token-result');
+      if (tokenResult) {
+        tokenResult.style.display = 'none';
       }
       
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/lease/expire-clients`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': ADMIN_KEY
-          },
-          body: JSON.stringify({
-            adminKey: ADMIN_KEY
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Refresh client list and stats
-        await fetchClients(currentPage);
-        await loadLeaseStats();
-        
-        showNotification('Success', `Expired ${data.results.expired} clients out of ${data.results.processed} processed`);
-        
-      } catch (error) {
-        console.error('Error expiring clients:', error);
-        showNotification('Error', 'Failed to expire clients: ' + error.message, 'error');
-      }
+      currentToken = '';
+      currentClientId = '';
     });
+  }
+});
 
-    // Renew lease form handler
-    document.getElementById('renew-lease-form').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      
-      const clientId = document.getElementById('renew-client-id').value;
-      const duration = parseInt(document.getElementById('renew-duration').value);
-      
-      toggleSpinner('renew-spinner', true);
-      
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/renew-lease`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': ADMIN_KEY
-          },
-          body: JSON.stringify({
-            duration: duration,
-            adminKey: ADMIN_KEY
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Refresh client list and close modal
-        await fetchClients(currentPage);
-        leaseManagementModal.hide();
-        
-        showNotification('Success', `Lease renewed successfully for ${duration} days`);
-        
-      } catch (error) {
-        console.error('Error renewing lease:', error);
-        showNotification('Error', 'Failed to renew lease: ' + error.message, 'error');
-      } finally {
-        toggleSpinner('renew-spinner', false);
-      }
-    });
+// Export functions for global access
+window.testGeneratedToken = testGeneratedToken;
+window.copyIntegrationCode = copyIntegrationCode;
+window.validateToken = validateToken;
+window.refreshClientDropdown = refreshClientDropdown;
 
-    // Extend lease form handler
-    document.getElementById('extend-lease-form').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      
-      const clientId = document.getElementById('extend-client-id').value;
-      const additionalDays = parseInt(document.getElementById('extend-days').value);
-      
-      toggleSpinner('extend-spinner', true);
-      
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/extend-lease`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': ADMIN_KEY
-          },
-          body: JSON.stringify({
-            additionalDays: additionalDays,
-            adminKey: ADMIN_KEY
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Refresh client list and close modal
-        await fetchClients(currentPage);
-        leaseManagementModal.hide();
-        
-        showNotification('Success', `Lease extended by ${additionalDays} days`);
-        
-      } catch (error) {
-        console.error('Error extending lease:', error);
-        showNotification('Error', 'Failed to extend lease: ' + error.message, 'error');
-      } finally {
-        toggleSpinner('extend-spinner', false);
-      }
-    });
 
     // Open edit client modal
     function openEditClientModal(clientId) {
