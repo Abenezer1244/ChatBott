@@ -13,114 +13,6 @@
       font-size: 14px;
     }
     
-    /* Mobile-first responsive design */
-    @media (max-width: 768px) {
-      body {
-        padding-top: 10px;
-        font-size: 13px;
-      }
-      
-      .container-fluid {
-        padding-left: 10px;
-        padding-right: 10px;
-      }
-      
-      h1 {
-        font-size: 1.5rem;
-        text-align: center;
-        margin-bottom: 1rem;
-      }
-      
-      .card {
-        margin-bottom: 15px;
-      }
-      
-      .card-body {
-        padding: 15px;
-      }
-      
-      .btn {
-        font-size: 0.875rem;
-        padding: 0.375rem 0.75rem;
-      }
-      
-      .btn-sm {
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-      }
-      
-      .table-responsive {
-        font-size: 0.8rem;
-      }
-      
-      .stats-card h3 {
-        font-size: 1.5rem;
-      }
-      
-      .stats-card h6 {
-        font-size: 0.8rem;
-      }
-      
-      .lease-actions {
-        flex-direction: column;
-        gap: 0.25rem;
-      }
-      
-      .lease-actions .btn {
-        width: 100%;
-        justify-content: center;
-      }
-      
-      .modal-dialog {
-        margin: 0.5rem;
-      }
-      
-      .form-control, .form-select {
-        font-size: 0.875rem;
-      }
-      
-      .pagination {
-        font-size: 0.8rem;
-      }
-      
-      .toast {
-        font-size: 0.8rem;
-      }
-    }
-    
-    @media (max-width: 576px) {
-      .col-md-3, .col-md-4, .col-md-6 {
-        margin-bottom: 1rem;
-      }
-      
-      .stats-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-      }
-      
-      .stats-grid .col-md-3 {
-        margin-bottom: 0;
-      }
-      
-      .table th, .table td {
-        padding: 0.4rem;
-        font-size: 0.75rem;
-        white-space: nowrap;
-      }
-      
-      .client-actions-mobile {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-      }
-      
-      .client-actions-mobile .btn {
-        font-size: 0.7rem;
-        padding: 0.2rem 0.4rem;
-      }
-    }
-    
     /* Card styles */
     .card {
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -285,126 +177,6 @@
       box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
     }
     
-    /* Responsive table improvements */
-    @media (max-width: 992px) {
-      .table-responsive {
-        border: none;
-      }
-      
-      .table-responsive table {
-        min-width: 800px;
-      }
-    }
-    
-    /* Custom scrollbar for mobile */
-    .table-responsive::-webkit-scrollbar {
-      height: 8px;
-    }
-    
-    .table-responsive::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 4px;
-    }
-    
-    .table-responsive::-webkit-scrollbar-thumb {
-      background: #888;
-      border-radius: 4px;
-    }
-    
-    .table-responsive::-webkit-scrollbar-thumb:hover {
-      background: #555;
-    }
-    
-    /* Toast notifications positioning */
-    .toast-container {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      z-index: 1050;
-    }
-    
-    @media (max-width: 768px) {
-      .toast-container {
-        top: 10px;
-        right: 10px;
-        left: 10px;
-      }
-      
-      .toast {
-        width: 100%;
-      }
-    }
-    
-    /* Modal improvements for mobile */
-    @media (max-width: 576px) {
-      .modal-dialog {
-        max-width: 95%;
-        margin: 10px auto;
-      }
-      
-      .modal-content {
-        border-radius: 10px;
-      }
-      
-      .modal-header {
-        padding: 15px;
-      }
-      
-      .modal-body {
-        padding: 15px;
-      }
-      
-      .modal-footer {
-        padding: 15px;
-        flex-direction: column;
-      }
-      
-      .modal-footer .btn {
-        width: 100%;
-        margin-bottom: 0.5rem;
-      }
-      
-      .modal-footer .btn:last-child {
-        margin-bottom: 0;
-      }
-    }
-    
-    /* Pagination responsive */
-    @media (max-width: 576px) {
-      .pagination {
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-      
-      .page-item {
-        margin: 1px;
-      }
-      
-      .page-link {
-        padding: 0.375rem 0.75rem;
-        font-size: 0.8rem;
-      }
-    }
-    
-    /* Utility classes for mobile */
-    .mobile-hide {
-      display: block;
-    }
-    
-    .mobile-show {
-      display: none;
-    }
-    
-    @media (max-width: 768px) {
-      .mobile-hide {
-        display: none;
-      }
-      
-      .mobile-show {
-        display: block;
-      }
-    }
-    
     /* Enhanced button styles */
     .btn {
       border-radius: 6px;
@@ -451,7 +223,7 @@
       font-weight: 500;
     }
     
-    /* Page header responsive */
+    /* Page header */
     .page-header {
       text-align: center;
       margin-bottom: 2rem;
@@ -465,16 +237,6 @@
       font-weight: 700;
     }
     
-    @media (max-width: 768px) {
-      .page-header {
-        margin-bottom: 1rem;
-      }
-      
-      .page-header h1 {
-        font-size: 1.75rem;
-      }
-    }
-    
     /* Search and filter improvements */
     .filter-section {
       background: white;
@@ -482,16 +244,6 @@
       border-radius: 10px;
       margin-bottom: 20px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    
-    @media (max-width: 768px) {
-      .filter-section {
-        padding: 15px;
-      }
-      
-      .filter-section .row > div {
-        margin-bottom: 15px;
-      }
     }
     
     /* Action button improvements */
@@ -502,109 +254,12 @@
       justify-content: flex-start;
     }
     
-    @media (max-width: 576px) {
-      .action-buttons {
-        flex-direction: column;
-      }
-      
-      .action-buttons .btn {
-        width: 100%;
-      }
-    }
-    
-    /* Client card for mobile view */
-    .client-card-mobile {
-      display: none;
-    }
-    
-    @media (max-width: 992px) {
-      .table-responsive {
-        display: none;
-      }
-      
-      .client-card-mobile {
-        display: block;
-      }
-      
-      .client-card {
-        background: white;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        border-left: 4px solid #0d6efd;
-      }
-      
-      .client-card.lease-expired {
-        border-left-color: #dc3545;
-      }
-      
-      .client-card.lease-expiring {
-        border-left-color: #fd7e14;
-      }
-      
-      .client-card.lease-active {
-        border-left-color: #198754;
-      }
-      
-      .client-card.lease-grace {
-        border-left-color: #ffc107;
-      }
-      
-      .client-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 10px;
-      }
-      
-      .client-card-title {
-        font-weight: 600;
-        color: #212529;
-        margin: 0;
-      }
-      
-      .client-card-id {
-        font-size: 0.8rem;
-        color: #6c757d;
-        font-family: 'Courier New', monospace;
-      }
-      
-      .client-card-body {
-        margin-bottom: 15px;
-      }
-      
-      .client-card-info {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        margin-bottom: 10px;
-      }
-      
-      .client-card-info-item {
-        font-size: 0.85rem;
-      }
-      
-      .client-card-info-label {
-        font-weight: 500;
-        color: #495057;
-      }
-      
-      .client-card-info-value {
-        color: #212529;
-      }
-      
-      .client-card-actions {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-      }
-      
-      .client-card-actions .btn {
-        flex: 1;
-        min-width: calc(50% - 0.25rem);
-        font-size: 0.8rem;
-      }
+    /* Toast notifications positioning */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1050;
     }
   </style>
 </head>
@@ -616,7 +271,7 @@
     </div>
 
     <!-- Lease Statistics Cards -->
-    <div class="row stats-grid mb-4">
+    <div class="row mb-4">
       <div class="col-md-3 col-sm-6">
         <div class="card stats-card success">
           <div class="card-body">
@@ -828,11 +483,6 @@
               <!-- Client rows will be added here -->
             </tbody>
           </table>
-        </div>
-        
-        <!-- Mobile Card View -->
-        <div class="client-card-mobile" id="client-cards">
-          <!-- Client cards will be added here -->
         </div>
         
         <!-- Pagination -->
@@ -1051,244 +701,96 @@
       });
     }
 
-
-
-// ENHANCED CONNECTION TEST FUNCTION
-async function testConnection() {
-  try {
-    console.log('Testing connection...');
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
-    const response = await fetch(`${API_BASE_URL}/api/health`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Connection test successful:', data);
-      showNotification('Success', 'Connection test successful', 'success');
-      return true;
-    } else {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-  } catch (error) {
-    console.error('Connection test failed:', error);
-    
-    let errorMessage = 'Connection test failed';
-    if (error.name === 'AbortError') {
-      errorMessage = 'Connection test timed out';
-    } else if (error.message.includes('Failed to fetch')) {
-      errorMessage = 'Network error - check your internet connection';
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    showNotification('Error', errorMessage, 'error');
-    return false;
-  }
-}
-
-// ENHANCED INITIALIZATION FUNCTION
-async function initializeDashboard() {
-  try {
-    console.log('Initializing dashboard...');
-    
-    // Test connection first
-    const connectionOk = await testConnection();
-    
-    if (!connectionOk) {
-      console.warn('Connection test failed, but continuing with initialization...');
-    }
-    
-    // Load dashboard data in parallel
-    const promises = [
-      loadLeaseStats(),
-      fetchClients(currentPage)
-    ];
-    
-    await Promise.allSettled(promises);
-    
-    console.log('Dashboard initialization complete');
-    
-  } catch (error) {
-    console.error('Dashboard initialization error:', error);
-    showNotification('Error', 'Failed to initialize dashboard', 'error');
-  }
-}
-
-// ENHANCED ERROR RECOVERY FUNCTION
-function recoverFromError() {
-  console.log('Attempting error recovery...');
-  showNotification('Info', 'Attempting to recover from error...', 'info');
-  
-  // Reset state
-  clients = [];
-  totalClients = 0;
-  currentPage = 1;
-  totalPages = 1;
-  
-  // Clear any existing error states
-  const errorElements = document.querySelectorAll('.alert-danger');
-  errorElements.forEach(el => el.remove());
-  
-  // Reinitialize
-  setTimeout(() => {
-    initializeDashboard();
-  }, 1000);
-}
-
-// ENHANCED NETWORK STATUS MONITORING
-window.addEventListener('online', function() {
-  console.log('Network connection restored');
-  showNotification('Connected', 'Internet connection restored', 'success');
-  setTimeout(() => {
-    initializeDashboard();
-  }, 1000);
-});
-
-window.addEventListener('offline', function() {
-  console.log('Network connection lost');
-  showNotification('Offline', 'No internet connection', 'warning');
-});
-
-
-
-
-// Add retry functionality to the page
-function addRetryButton() {
-  const retryButton = document.createElement('button');
-  retryButton.className = 'btn btn-primary btn-sm';
-  retryButton.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Retry Loading';
-  retryButton.onclick = recoverFromError;
-  
-  const pageHeader = document.querySelector('.page-header');
-  if (pageHeader) {
-    pageHeader.appendChild(retryButton);
-  }
-}
-
-// ENHANCED ERROR NOTIFICATION WITH STACK TRACE (DEV ONLY)
-function showDetailedError(error, context = '') {
-  if (window.location.hostname === 'localhost' || window.location.hostname.includes('dev')) {
-    console.group(`Detailed Error: ${context}`);
-    console.error('Error object:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.groupEnd();
-  }
-}
-
-// Export functions for global access
-window.fetchClients = fetchClients;
-window.loadLeaseStats = loadLeaseStats;
-window.testConnection = testConnection;
-window.initializeDashboard = initializeDashboard;
-window.recoverFromError = recoverFromError;
-
     // Load lease statistics
-
-
-// ENHANCED LOAD LEASE STATS FUNCTION
-async function loadLeaseStats() {
-  try {
-    console.log('=== LOADING LEASE STATS ===');
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    
-    const response = await fetch(`${API_BASE_URL}/api/clients/lease-dashboard`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'x-admin-key': ADMIN_KEY,
-        'Cache-Control': 'no-cache'
-      },
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    console.log('Lease stats response status:', response.status);
-    
-    if (!response.ok) {
-      let errorData;
+    async function loadLeaseStats() {
       try {
-        errorData = await response.json();
-      } catch (parseError) {
-        const responseText = await response.text();
-        console.error('Failed to parse lease stats error response:', parseError);
-        console.error('Raw response:', responseText);
-        throw new Error(`HTTP ${response.status}: Failed to load dashboard`);
+        console.log('=== LOADING LEASE STATS ===');
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        const response = await fetch(API_BASE_URL + '/api/clients/lease-dashboard', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'x-admin-key': ADMIN_KEY,
+            'Cache-Control': 'no-cache'
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        console.log('Lease stats response status:', response.status);
+        
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (parseError) {
+            const responseText = await response.text();
+            console.error('Failed to parse lease stats error response:', parseError);
+            console.error('Raw response:', responseText);
+            throw new Error('HTTP ' + response.status + ': Failed to load dashboard');
+          }
+          
+          console.error('Lease stats API error:', errorData);
+          throw new Error(errorData.message || 'HTTP ' + response.status + ': ' + response.statusText);
+        }
+        
+        const data = await response.json();
+        console.log('Lease stats loaded:', data);
+        
+        // Validate response structure
+        if (!data || !data.stats) {
+          throw new Error('Invalid dashboard response: missing stats');
+        }
+        
+        // Update statistics cards with error handling
+        const updateStat = (elementId, value, fallback = 0) => {
+          const element = document.getElementById(elementId);
+          if (element) {
+            element.textContent = value !== undefined ? value : fallback;
+          } else {
+            console.warn('Element not found: ' + elementId);
+          }
+        };
+        
+        updateStat('active-leases-count', data.stats.leaseStatus && data.stats.leaseStatus.active);
+        updateStat('expiring-soon-count', data.stats.leaseStatus && data.stats.leaseStatus.expiring3Days);
+        updateStat('expired-count', data.stats.leaseStatus && data.stats.leaseStatus.expired);
+        updateStat('total-clients-count', data.stats.totalClients);
+        
+        console.log('=== LEASE STATS SUCCESS ===');
+        
+      } catch (error) {
+        console.error('=== LEASE STATS ERROR ===');
+        console.error('Error details:', error);
+        
+        let errorMessage = 'Failed to load dashboard statistics';
+        
+        if (error.name === 'AbortError') {
+          errorMessage = 'Dashboard request timed out';
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Network error loading dashboard';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        showNotification('Warning', errorMessage, 'warning');
+        
+        // Set default values on error
+        const defaultStats = ['active-leases-count', 'expiring-soon-count', 'expired-count', 'total-clients-count'];
+        defaultStats.forEach(id => {
+          const element = document.getElementById(id);
+          if (element) {
+            element.textContent = '?';
+            element.style.color = '#dc3545'; // Red color to indicate error
+          }
+        });
       }
-      
-      console.error('Lease stats API error:', errorData);
-      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
-    
-    const data = await response.json();
-    console.log('Lease stats loaded:', data);
-    
-    // Validate response structure
-    if (!data || !data.stats) {
-      throw new Error('Invalid dashboard response: missing stats');
-    }
-    
-    // Update statistics cards with error handling
-    const updateStat = (elementId, value, fallback = 0) => {
-      const element = document.getElementById(elementId);
-      if (element) {
-        element.textContent = value !== undefined ? value : fallback;
-      } else {
-        console.warn(`Element not found: ${elementId}`);
-      }
-    };
-    
-    updateStat('active-leases-count', data.stats.leaseStatus?.active);
-    updateStat('expiring-soon-count', data.stats.leaseStatus?.expiring3Days);
-    updateStat('expired-count', data.stats.leaseStatus?.expired);
-    updateStat('total-clients-count', data.stats.totalClients);
-    
-    console.log('=== LEASE STATS SUCCESS ===');
-    
-  } catch (error) {
-    console.error('=== LEASE STATS ERROR ===');
-    console.error('Error details:', error);
-    
-    let errorMessage = 'Failed to load dashboard statistics';
-    
-    if (error.name === 'AbortError') {
-      errorMessage = 'Dashboard request timed out';
-    } else if (error.message.includes('Failed to fetch')) {
-      errorMessage = 'Network error loading dashboard';
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    showNotification('Warning', errorMessage, 'warning');
-    
-    // Set default values on error
-    const defaultStats = ['active-leases-count', 'expiring-soon-count', 'expired-count', 'total-clients-count'];
-    defaultStats.forEach(id => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.textContent = '?';
-        element.style.color = '#dc3545'; // Red color to indicate error
-      }
-    });
-  }
-}
 
     // Show/hide loading spinners
     function toggleSpinner(elementId, show) {
@@ -1331,13 +833,13 @@ async function loadLeaseStats() {
       };
       
       const status = statusMap[leaseStatus.status] || { class: 'bg-secondary', text: 'Unknown' };
-      return `<span class="badge ${status.class} lease-status-badge">${status.text}</span>`;
+      return '<span class="badge ' + status.class + ' lease-status-badge">' + status.text + '</span>';
     }
 
     // Get progress bar for days remaining
     function getDaysProgressBar(leaseStatus) {
       if (leaseStatus.status === 'expired') {
-        return `<div class="progress-days"><div class="progress-fill expired" style="width: 100%"></div></div>`;
+        return '<div class="progress-days"><div class="progress-fill expired" style="width: 100%"></div></div>';
       }
       
       const totalDays = 30; // Assuming max 30 days for progress calculation
@@ -1348,247 +850,210 @@ async function loadLeaseStats() {
       if (remaining <= 3) progressClass = 'expiring';
       if (remaining <= 0) progressClass = 'expired';
       
-      return `<div class="progress-days"><div class="progress-fill ${progressClass}" style="width: ${percentage}%"></div></div>`;
+      return '<div class="progress-days"><div class="progress-fill ' + progressClass + '" style="width: ' + percentage + '%"></div></div>';
     }
 
     // Fetch clients with enhanced lease filtering
-// ENHANCED FETCH CLIENTS FUNCTION WITH COMPREHENSIVE ERROR HANDLING
-async function fetchClients(page = 1, limit = pageSize) {
-  try {
-    console.log('=== FETCH CLIENTS START ===');
-    console.log('Page:', page, 'Limit:', limit);
-    
-    document.getElementById('clients-loading').style.display = 'flex';
-    toggleSpinner('refresh-spinner', true);
-    
-    // Build query parameters with validation
-    const params = new URLSearchParams({
-      page: Math.max(1, page),
-      limit: Math.min(Math.max(1, limit), 100),
-      sortBy: 'leaseConfig.expirationDate',
-      sortOrder: 'asc'
-    });
-    
-    // Add filters with validation
-    const leaseStatusFilter = document.getElementById('lease-status-filter')?.value;
-    const durationFilter = document.getElementById('duration-filter')?.value;
-    
-    if (leaseStatusFilter) params.append('leaseStatus', leaseStatusFilter);
-    if (durationFilter) params.append('leaseDuration', durationFilter);
-    
-    console.log('Request URL:', `${API_BASE_URL}/api/clients?${params}`);
-    console.log('Admin Key Set:', !!ADMIN_KEY);
-    
-    // Enhanced fetch with timeout and comprehensive error handling
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, 30000); // 30 second timeout
-    
-    const response = await fetch(`${API_BASE_URL}/api/clients?${params}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'x-admin-key': ADMIN_KEY,
-        'Cache-Control': 'no-cache'
-      },
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    if (!response.ok) {
-      let errorData;
+    async function fetchClients(page = 1, limit = pageSize) {
       try {
-        errorData = await response.json();
-      } catch (parseError) {
-        const responseText = await response.text();
-        console.error('Failed to parse error response as JSON:', parseError);
-        console.error('Raw response:', responseText);
+        console.log('=== FETCH CLIENTS START ===');
+        console.log('Page:', page, 'Limit:', limit);
         
-        throw new Error(`HTTP ${response.status}: ${response.statusText || 'Unknown error'}`);
+        document.getElementById('clients-loading').style.display = 'flex';
+        toggleSpinner('refresh-spinner', true);
+        
+        // Build query parameters with validation
+        const params = new URLSearchParams({
+          page: Math.max(1, page),
+          limit: Math.min(Math.max(1, limit), 100),
+          sortBy: 'leaseConfig.expirationDate',
+          sortOrder: 'asc'
+        });
+        
+        // Add filters with validation
+        const leaseStatusFilter = document.getElementById('lease-status-filter') && document.getElementById('lease-status-filter').value;
+        const durationFilter = document.getElementById('duration-filter') && document.getElementById('duration-filter').value;
+        
+        if (leaseStatusFilter) params.append('leaseStatus', leaseStatusFilter);
+        if (durationFilter) params.append('leaseDuration', durationFilter);
+        
+        console.log('Request URL:', API_BASE_URL + '/api/clients?' + params);
+        console.log('Admin Key Set:', !!ADMIN_KEY);
+        
+        // Enhanced fetch with timeout and comprehensive error handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, 30000); // 30 second timeout
+        
+        const response = await fetch(API_BASE_URL + '/api/clients?' + params, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'x-admin-key': ADMIN_KEY,
+            'Cache-Control': 'no-cache'
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (parseError) {
+            const responseText = await response.text();
+            console.error('Failed to parse error response as JSON:', parseError);
+            console.error('Raw response:', responseText);
+            
+            throw new Error('HTTP ' + response.status + ': ' + (response.statusText || 'Unknown error'));
+          }
+          
+          console.error('API Error Response:', errorData);
+          
+          // Handle specific error cases
+          if (response.status === 401) {
+            throw new Error('Authentication failed. Please check your admin key.');
+          } else if (response.status === 403) {
+            throw new Error('Access denied. You do not have permission to view clients.');
+          } else if (response.status === 500) {
+            throw new Error(errorData.message || 'Server error occurred while fetching clients.');
+          } else {
+            throw new Error(errorData.message || 'HTTP ' + response.status + ': ' + response.statusText);
+          }
+        }
+        
+        const data = await response.json();
+        console.log('Response data structure:', {
+          hasClients: !!data.clients,
+          clientsCount: data.clients && data.clients.length || 0,
+          hasPagination: !!data.pagination,
+          hasStats: !!data.stats
+        });
+        
+        // Validate response structure
+        if (!data || typeof data !== 'object') {
+          throw new Error('Invalid response format: expected object');
+        }
+        
+        if (!Array.isArray(data.clients)) {
+          console.warn('Invalid clients data:', data.clients);
+          throw new Error('Invalid response format: clients must be an array');
+        }
+        
+        // Set global variables with fallbacks
+        clients = data.clients || [];
+        totalClients = data.pagination && data.pagination.total || 0;
+        totalPages = data.pagination && data.pagination.pages || 1;
+        currentPage = data.pagination && data.pagination.page || 1;
+        
+        console.log('Data processed successfully:', {
+          clientsLoaded: clients.length,
+          totalClients,
+          currentPage,
+          totalPages
+        });
+        
+        // Update UI components
+        updateClientsList();
+        updateClientDropdown();
+        updatePagination();
+        
+        // Update client count badge
+        const countBadge = document.getElementById('client-count-badge');
+        if (countBadge) {
+          countBadge.textContent = totalClients + ' clients';
+        }
+        
+        // Update stats if available
+        if (data.stats) {
+          const activeCountEl = document.getElementById('active-leases-count');
+          const expiredCountEl = document.getElementById('expired-count');
+          const totalCountEl = document.getElementById('total-clients-count');
+          
+          if (activeCountEl) activeCountEl.textContent = data.stats.totalActive || 0;
+          if (expiredCountEl) expiredCountEl.textContent = data.stats.totalExpired || 0;
+          if (totalCountEl) totalCountEl.textContent = data.stats.totalClients || 0;
+        }
+        
+        console.log('=== FETCH CLIENTS SUCCESS ===');
+        showNotification('Success', 'Clients loaded successfully');
+        
+      } catch (error) {
+        console.error('=== FETCH CLIENTS ERROR ===');
+        console.error('Error details:', error);
+        console.error('Error stack:', error.stack);
+        
+        // Handle specific error types
+        let errorMessage = 'Failed to load clients';
+        
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timed out. Please check your connection and try again.';
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Network error. Please check your internet connection.';
+        } else if (error.message.includes('Authentication failed')) {
+          errorMessage = 'Authentication failed. Please refresh the page and try again.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        showNotification('Error', errorMessage, 'error');
+        
+        // Set empty state with error information
+        clients = [];
+        totalClients = 0;
+        totalPages = 1;
+        currentPage = 1;
+        
+        // Update UI to show error state
+        updateClientsList();
+        updateClientDropdown();
+        updatePagination();
+        
+        // Show error details in client list
+        const clientList = document.getElementById('client-list');
+        
+        if (clientList) {
+          clientList.innerHTML = '<tr><td colspan="9" class="text-center py-4"><div class="alert alert-danger"><h5>Failed to Load Clients</h5><p>' + errorMessage + '</p><button class="btn btn-outline-danger btn-sm" onclick="fetchClients(1)"><i class="bi bi-arrow-clockwise"></i> Retry</button></div></td></tr>';
+        }
+        
+        // Update badges to show error state
+        const badges = ['active-leases-count', 'expired-count', 'total-clients-count', 'client-count-badge'];
+        badges.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.textContent = id === 'client-count-badge' ? 'Error' : '?';
+          }
+        });
+        
+      } finally {
+        // Always hide loading indicators
+        const loadingEl = document.getElementById('clients-loading');
+        if (loadingEl) {
+          loadingEl.style.display = 'none';
+        }
+        toggleSpinner('refresh-spinner', false);
+        
+        console.log('=== FETCH CLIENTS COMPLETE ===');
       }
-      
-      console.error('API Error Response:', errorData);
-      
-      // Handle specific error cases
-      if (response.status === 401) {
-        throw new Error('Authentication failed. Please check your admin key.');
-      } else if (response.status === 403) {
-        throw new Error('Access denied. You do not have permission to view clients.');
-      } else if (response.status === 500) {
-        throw new Error(errorData.message || 'Server error occurred while fetching clients.');
-      } else {
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
     }
-    
-    const data = await response.json();
-    console.log('Response data structure:', {
-      hasClients: !!data.clients,
-      clientsCount: data.clients?.length || 0,
-      hasPagination: !!data.pagination,
-      hasStats: !!data.stats
-    });
-    
-    // Validate response structure
-    if (!data || typeof data !== 'object') {
-      throw new Error('Invalid response format: expected object');
-    }
-    
-    if (!Array.isArray(data.clients)) {
-      console.warn('Invalid clients data:', data.clients);
-      throw new Error('Invalid response format: clients must be an array');
-    }
-    
-    // Set global variables with fallbacks
-    clients = data.clients || [];
-    totalClients = data.pagination?.total || 0;
-    totalPages = data.pagination?.pages || 1;
-    currentPage = data.pagination?.page || 1;
-    
-    console.log('Data processed successfully:', {
-      clientsLoaded: clients.length,
-      totalClients,
-      currentPage,
-      totalPages
-    });
-    
-    // Update UI components
-    updateClientsList();
-    updateClientDropdown();
-    updatePagination();
-    
-    // Update client count badge
-    const countBadge = document.getElementById('client-count-badge');
-    if (countBadge) {
-      countBadge.textContent = `${totalClients} clients`;
-    }
-    
-    // Update stats if available
-    if (data.stats) {
-      const activeCountEl = document.getElementById('active-leases-count');
-      const expiredCountEl = document.getElementById('expired-count');
-      const totalCountEl = document.getElementById('total-clients-count');
-      
-      if (activeCountEl) activeCountEl.textContent = data.stats.totalActive || 0;
-      if (expiredCountEl) expiredCountEl.textContent = data.stats.totalExpired || 0;
-      if (totalCountEl) totalCountEl.textContent = data.stats.totalClients || 0;
-    }
-    
-    console.log('=== FETCH CLIENTS SUCCESS ===');
-    showNotification('Success', 'Clients loaded successfully');
-    
-  } catch (error) {
-    console.error('=== FETCH CLIENTS ERROR ===');
-    console.error('Error details:', error);
-    console.error('Error stack:', error.stack);
-    
-    // Handle specific error types
-    let errorMessage = 'Failed to load clients';
-    
-    if (error.name === 'AbortError') {
-      errorMessage = 'Request timed out. Please check your connection and try again.';
-    } else if (error.message.includes('Failed to fetch')) {
-      errorMessage = 'Network error. Please check your internet connection.';
-    } else if (error.message.includes('Authentication failed')) {
-      errorMessage = 'Authentication failed. Please refresh the page and try again.';
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    showNotification('Error', errorMessage, 'error');
-    
-    // Set empty state with error information
-    clients = [];
-    totalClients = 0;
-    totalPages = 1;
-    currentPage = 1;
-    
-    // Update UI to show error state
-    updateClientsList();
-    updateClientDropdown();
-    updatePagination();
-    
-    // Show error details in client list
-    const clientList = document.getElementById('client-list');
-    const clientCards = document.getElementById('client-cards');
-    
-    if (clientList) {
-      clientList.innerHTML = `
-        <tr>
-          <td colspan="9" class="text-center py-4">
-            <div class="alert alert-danger">
-              <h5>Failed to Load Clients</h5>
-              <p>${errorMessage}</p>
-              <button class="btn btn-outline-danger btn-sm" onclick="fetchClients(1)">
-                <i class="bi bi-arrow-clockwise"></i> Retry
-              </button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }
-    
-    if (clientCards) {
-      clientCards.innerHTML = `
-        <div class="client-card text-center py-4">
-          <div class="alert alert-danger">
-            <h5>Failed to Load Clients</h5>
-            <p>${errorMessage}</p>
-            <button class="btn btn-outline-danger btn-sm" onclick="fetchClients(1)">
-              <i class="bi bi-arrow-clockwise"></i> Retry
-            </button>
-          </div>
-        </div>
-      `;
-    }
-    
-    // Update badges to show error state
-    const badges = ['active-leases-count', 'expired-count', 'total-clients-count', 'client-count-badge'];
-    badges.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.textContent = id === 'client-count-badge' ? 'Error' : '?';
-      }
-    });
-    
-  } finally {
-    // Always hide loading indicators
-    const loadingEl = document.getElementById('clients-loading');
-    if (loadingEl) {
-      loadingEl.style.display = 'none';
-    }
-    toggleSpinner('refresh-spinner', false);
-    
-    console.log('=== FETCH CLIENTS COMPLETE ===');
-  }
-}
 
     // Update clients list with lease information
     function updateClientsList() {
       const clientList = document.getElementById('client-list');
-      const clientCards = document.getElementById('client-cards');
       
-      // Clear both desktop and mobile views
+      // Clear desktop view
       clientList.innerHTML = '';
-      clientCards.innerHTML = '';
       
       if (clients.length === 0) {
         // Desktop empty state
         const row = document.createElement('tr');
         row.innerHTML = '<td colspan="9" class="text-center py-4">No clients found. Create your first client to get started.</td>';
         clientList.appendChild(row);
-        
-        // Mobile empty state
-        const card = document.createElement('div');
-        card.className = 'client-card text-center py-4';
-        card.innerHTML = '<p class="mb-0">No clients found. Create your first client to get started.</p>';
-        clientCards.appendChild(card);
         return;
       }
       
@@ -1600,95 +1065,25 @@ async function fetchClients(page = 1, limit = pageSize) {
         const row = document.createElement('tr');
         row.className = 'client-row';
         
-        row.innerHTML = `
-          <td class="copyable" onclick="copyToClipboard('${client.clientId}')" title="Click to copy">${client.clientId}</td>
-          <td>${client.name}</td>
-          <td>${client.email}</td>
-          <td>${getLeaseStatusBadge(leaseStatus)}</td>
-          <td>
-            <div>${leaseStatus.daysRemaining >= 0 ? leaseStatus.daysRemaining : 'Expired'}</div>
-            ${getDaysProgressBar(leaseStatus)}
-          </td>
-          <td>${leaseInfo.duration || 'N/A'} days</td>
-          <td>${leaseInfo.renewalCount || 0}</td>
-          <td>${client.requestCount || 0}</td>
-          <td>
-            <div class="lease-actions">
-              <button class="btn btn-sm btn-outline-primary edit-client" data-client-id="${client.clientId}" title="Edit Client">
-                <i class="bi bi-pencil"></i>
-              </button>
-              <button class="btn btn-sm btn-outline-success manage-lease" data-client-id="${client.clientId}" title="Manage Lease">
-                <i class="bi bi-calendar-check"></i>
-              </button>
-              <button class="btn btn-sm btn-outline-warning ${client.active ? 'deactivate-client' : 'activate-client'}" 
-                      data-client-id="${client.clientId}" title="${client.active ? 'Deactivate' : 'Activate'}">
-                <i class="bi bi-${client.active ? 'pause' : 'play'}-circle"></i>
-              </button>
-              <button class="btn btn-sm btn-outline-danger delete-client" data-client-id="${client.clientId}" title="Delete Client">
-                <i class="bi bi-trash"></i>
-              </button>
-            </div>
-          </td>
-        `;
+        row.innerHTML = '<td class="copyable" onclick="copyToClipboard(\'' + client.clientId + '\')" title="Click to copy">' + client.clientId + '</td>' +
+          '<td>' + client.name + '</td>' +
+          '<td>' + client.email + '</td>' +
+          '<td>' + getLeaseStatusBadge(leaseStatus) + '</td>' +
+          '<td><div>' + (leaseStatus.daysRemaining >= 0 ? leaseStatus.daysRemaining : 'Expired') + '</div>' + getDaysProgressBar(leaseStatus) + '</td>' +
+          '<td>' + (leaseInfo.duration || 'N/A') + ' days</td>' +
+          '<td>' + (leaseInfo.renewalCount || 0) + '</td>' +
+          '<td>' + (client.requestCount || 0) + '</td>' +
+          '<td><div class="lease-actions">' +
+          '<button class="btn btn-sm btn-outline-primary edit-client" data-client-id="' + client.clientId + '" title="Edit Client"><i class="bi bi-pencil"></i></button>' +
+          '<button class="btn btn-sm btn-outline-success manage-lease" data-client-id="' + client.clientId + '" title="Manage Lease"><i class="bi bi-calendar-check"></i></button>' +
+          '<button class="btn btn-sm btn-outline-warning ' + (client.active ? 'deactivate-client' : 'activate-client') + '" data-client-id="' + client.clientId + '" title="' + (client.active ? 'Deactivate' : 'Activate') + '"><i class="bi bi-' + (client.active ? 'pause' : 'play') + '-circle"></i></button>' +
+          '<button class="btn btn-sm btn-outline-danger delete-client" data-client-id="' + client.clientId + '" title="Delete Client"><i class="bi bi-trash"></i></button>' +
+          '</div></td>';
         
         clientList.appendChild(row);
-        
-        // Mobile card view
-        const card = document.createElement('div');
-        card.className = `client-card ${leaseStatus.status === 'expired' ? 'lease-expired' : 
-                                       leaseStatus.status === 'expiring_soon' ? 'lease-expiring' : 
-                                       leaseStatus.status === 'grace_period' ? 'lease-grace' : 'lease-active'}`;
-        
-        card.innerHTML = `
-          <div class="client-card-header">
-            <div>
-              <div class="client-card-title">${client.name}</div>
-              <div class="client-card-id copyable" onclick="copyToClipboard('${client.clientId}')">${client.clientId}</div>
-            </div>
-            ${getLeaseStatusBadge(leaseStatus)}
-          </div>
-          <div class="client-card-body">
-            <div class="client-card-info">
-              <div class="client-card-info-item">
-                <div class="client-card-info-label">Email</div>
-                <div class="client-card-info-value">${client.email}</div>
-              </div>
-              <div class="client-card-info-item">
-                <div class="client-card-info-label">Days Left</div>
-                <div class="client-card-info-value">${leaseStatus.daysRemaining >= 0 ? leaseStatus.daysRemaining : 'Expired'}</div>
-              </div>
-              <div class="client-card-info-item">
-                <div class="client-card-info-label">Duration</div>
-                <div class="client-card-info-value">${leaseInfo.duration || 'N/A'} days</div>
-              </div>
-              <div class="client-card-info-item">
-                <div class="client-card-info-label">Requests</div>
-                <div class="client-card-info-value">${client.requestCount || 0}</div>
-              </div>
-            </div>
-            ${getDaysProgressBar(leaseStatus)}
-          </div>
-          <div class="client-card-actions">
-            <button class="btn btn-sm btn-outline-primary edit-client" data-client-id="${client.clientId}">
-              <i class="bi bi-pencil"></i> Edit
-            </button>
-            <button class="btn btn-sm btn-outline-success manage-lease" data-client-id="${client.clientId}">
-              <i class="bi bi-calendar-check"></i> Lease
-            </button>
-            <button class="btn btn-sm btn-outline-warning ${client.active ? 'deactivate-client' : 'activate-client'}" 
-                    data-client-id="${client.clientId}">
-              <i class="bi bi-${client.active ? 'pause' : 'play'}-circle"></i> ${client.active ? 'Pause' : 'Activate'}
-            </button>
-            <button class="btn btn-sm btn-outline-danger delete-client" data-client-id="${client.clientId}">
-              <i class="bi bi-trash"></i> Delete
-            </button>
-          </div>
-        `;
-        
-        clientCards.appendChild(card);
       });
       
-      // Add event listeners to both desktop and mobile elements
+      // Add event listeners to elements
       document.querySelectorAll('.edit-client').forEach(btn => {
         btn.addEventListener('click', function() {
           const clientId = this.getAttribute('data-client-id');
@@ -1738,8 +1133,8 @@ async function fetchClients(page = 1, limit = pageSize) {
       activeClients.forEach(client => {
         const option = document.createElement('option');
         option.value = client.clientId;
-        const leaseInfo = client.leaseStatus ? ` (${client.leaseStatus.daysRemaining} days left)` : '';
-        option.textContent = `${client.name} (${client.clientId})${leaseInfo}`;
+        const leaseInfo = client.leaseStatus ? ' (' + client.leaseStatus.daysRemaining + ' days left)' : '';
+        option.textContent = client.name + ' (' + client.clientId + ')' + leaseInfo;
         dropdown.appendChild(option);
       });
     }
@@ -1760,7 +1155,7 @@ async function fetchClients(page = 1, limit = pageSize) {
       
       // Previous button
       const prevLi = document.createElement('li');
-      prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+      prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
       const prevBtn = document.createElement('button');
       prevBtn.className = 'page-link';
       prevBtn.innerHTML = '&laquo;';
@@ -1778,7 +1173,7 @@ async function fetchClients(page = 1, limit = pageSize) {
       
       for (let i = startPage; i <= endPage; i++) {
         const pageLi = document.createElement('li');
-        pageLi.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        pageLi.className = 'page-item' + (i === currentPage ? ' active' : '');
         const pageBtn = document.createElement('button');
         pageBtn.className = 'page-link';
         pageBtn.textContent = i;
@@ -1793,7 +1188,7 @@ async function fetchClients(page = 1, limit = pageSize) {
       
       // Next button
       const nextLi = document.createElement('li');
-      nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+      nextLi.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
       const nextBtn = document.createElement('button');
       nextBtn.className = 'page-link';
       nextBtn.innerHTML = '&raquo;';
@@ -1806,77 +1201,170 @@ async function fetchClients(page = 1, limit = pageSize) {
       paginationControls.appendChild(nextLi);
     }
 
-    // Open lease management modal
-    async function openLeaseManagementModal(clientId) {
-      const client = clients.find(c => c.clientId === clientId);
-      if (!client) return;
-      
-      const leaseStatus = client.leaseStatus || {};
-      const leaseInfo = client.leaseInfo || {};
-      
-      // Populate modal with client and lease information
-      document.getElementById('modal-client-name').textContent = client.name;
-      document.getElementById('modal-client-email').textContent = client.email;
-      document.getElementById('modal-client-id').textContent = client.clientId;
-      document.getElementById('modal-lease-status').innerHTML = getLeaseStatusBadge(leaseStatus);
-      document.getElementById('modal-days-remaining').textContent = leaseStatus.daysRemaining >= 0 ? leaseStatus.daysRemaining : 'Expired';
-      document.getElementById('modal-expiration-date').textContent = leaseInfo.expirationDate ? new Date(leaseInfo.expirationDate).toLocaleDateString() : 'N/A';
-      document.getElementById('modal-renewal-count').textContent = leaseInfo.renewalCount || 0;
-      
-      // Set form values
-      document.getElementById('renew-client-id').value = clientId;
-      document.getElementById('extend-client-id').value = clientId;
-      
-      // Load lease history
-      await loadLeaseHistory(clientId);
-      
-      leaseManagementModal.show();
-    }
+    // Helper function to copy text to clipboard
+    window.copyToClipboard = function(text) {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          showNotification('Copied', 'Copied to clipboard');
+        })
+        .catch(err => {
+          console.error('Failed to copy:', err);
+          showNotification('Error', 'Failed to copy to clipboard', 'error');
+        });
+    };
 
-    // Load lease history for a client
-    async function loadLeaseHistory(clientId) {
+    // Generate token for client - FIXED VERSION
+    document.getElementById('generate-token-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const clientId = document.getElementById('token-client-id').value;
+      if (!clientId) {
+        showNotification('Error', 'Please select a client', 'error');
+        return;
+      }
+      
+      console.log('=== TOKEN GENERATION START ===');
+      console.log('Selected client ID:', clientId);
+      
+      toggleSpinner('token-spinner', true);
+      
       try {
-        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/lease-history`, {
-          method: 'GET',
+        console.log('Sending token generation request...');
+        
+        const requestBody = {
+          clientId: clientId,
+          adminKey: ADMIN_KEY
+        };
+        
+        console.log('Request body:', requestBody);
+        
+        const response = await fetch(API_BASE_URL + '/api/auth/token', {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-admin-key': ADMIN_KEY
-          }
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
         });
         
+        console.log('Response status:', response.status);
+        
         if (!response.ok) {
-          throw new Error(`Server responded with status: ${response.status}`);
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (parseError) {
+            const responseText = await response.text();
+            console.error('Failed to parse error response:', parseError);
+            console.error('Raw response:', responseText);
+            throw new Error('HTTP ' + response.status + ': ' + (response.statusText || 'Unknown error'));
+          }
+          
+          console.error('Token generation API error:', errorData);
+          throw new Error(errorData.message || errorData.error || 'HTTP ' + response.status + ': ' + response.statusText);
         }
         
+        // Parse response data properly
         const data = await response.json();
-        const historyContainer = document.getElementById('lease-history-container');
+        console.log('Token generation response:', data);
         
-        if (data.leaseHistory && data.leaseHistory.length > 0) {
-          let historyHtml = '<div class="table-responsive"><table class="table table-sm">';
-          historyHtml += '<thead><tr><th>Start Date</th><th>End Date</th><th>Duration</th><th>Type</th><th>Renewed By</th></tr></thead><tbody>';
-          
-          data.leaseHistory.forEach(lease => {
-            historyHtml += `
-              <tr>
-                <td>${new Date(lease.startDate).toLocaleDateString()}</td>
-                <td>${new Date(lease.endDate).toLocaleDateString()}</td>
-                <td>${lease.duration} days</td>
-                <td><span class="badge bg-secondary">${lease.renewalType}</span></td>
-                <td>${lease.renewedBy || 'N/A'}</td>
-              </tr>
-            `;
-          });
-          
-          historyHtml += '</tbody></table></div>';
-          historyContainer.innerHTML = historyHtml;
-        } else {
-          historyContainer.innerHTML = '<div class="text-muted">No lease history available.</div>';
+        // Validate response structure
+        if (!data || !data.token) {
+          console.error('Invalid response structure:', data);
+          throw new Error('Invalid response: missing token');
         }
+        
+        // Set global variables properly
+        currentClientId = clientId;
+        currentToken = data.token;
+        
+        // Display token
+        document.getElementById('token-display').textContent = data.token;
+        document.getElementById('token-result').style.display = 'block';
+        
+        console.log('=== TOKEN GENERATION SUCCESS ===');
+        showNotification('Success', 'Token generated successfully');
+        
+        // Show warning notifications if present
+        if (data.warning) {
+          setTimeout(() => {
+            showNotification('Warning', data.warning.message, 'warning');
+          }, 1000);
+        }
+        
       } catch (error) {
-        console.error('Error loading lease history:', error);
-        document.getElementById('lease-history-container').innerHTML = '<div class="text-danger">Failed to load lease history.</div>';
+        console.error('=== TOKEN GENERATION ERROR ===');
+        console.error('Error details:', error);
+        
+        let errorMessage = 'Failed to generate token';
+        
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Network error. Please check your connection.';
+        } else if (error.message.includes('Invalid admin key')) {
+          errorMessage = 'Authentication failed. Please refresh the page.';
+        } else if (error.message.includes('Client not found')) {
+          errorMessage = 'Selected client not found. Please refresh and try again.';
+        } else if (error.message.includes('Lease expired')) {
+          errorMessage = 'Cannot generate token: Client lease has expired.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        showNotification('Error', errorMessage, 'error');
+        
+        // Hide token result section on error
+        document.getElementById('token-result').style.display = 'none';
+        
+      } finally {
+        toggleSpinner('token-spinner', false);
+        console.log('=== TOKEN GENERATION COMPLETE ===');
       }
-    }
+    });
+
+    // Copy token to clipboard
+    document.getElementById('copy-token').addEventListener('click', function() {
+      navigator.clipboard.writeText(currentToken)
+        .then(() => {
+          showNotification('Copied', 'Token copied to clipboard');
+        })
+        .catch(err => {
+          console.error('Failed to copy token:', err);
+          showNotification('Error', 'Failed to copy to clipboard', 'error');
+        });
+    });
+
+    // Copy embed code to clipboard - FIXED VERSION
+    document.getElementById('copy-embed-code').addEventListener('click', function() {
+      if (!currentToken || !currentClientId) {
+        showNotification('Error', 'No token or client ID available', 'error');
+        return;
+      }
+      
+      const serverUrl = API_BASE_URL || window.location.origin;
+      const embedCode = '<script src="' + serverUrl + '/widget.js"><\/script>\n<script>\n  window.MyChatWidget.init({\n    token: "' + currentToken + '",\n    clientId: "' + currentClientId + '"\n  });\n<\/script>';
+      
+      navigator.clipboard.writeText(embedCode)
+        .then(() => {
+          showNotification('Copied', 'Embed code copied to clipboard');
+          
+          // Visual feedback
+          const button = this;
+          const originalText = button.innerHTML;
+          button.innerHTML = '<i class="bi bi-check"></i> Copied!';
+          button.classList.add('btn-success');
+          button.classList.remove('btn-outline-primary');
+          
+          setTimeout(() => {
+            button.innerHTML = originalText;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-primary');
+          }, 2000);
+        })
+        .catch(err => {
+          console.error('Failed to copy embed code:', err);
+          showNotification('Error', 'Failed to copy to clipboard', 'error');
+        });
+    });
 
     // Create client form with lease duration
     document.getElementById('create-client-form').addEventListener('submit', async function(e) {
@@ -1896,7 +1384,7 @@ async function fetchClients(page = 1, limit = pageSize) {
       toggleSpinner('create-spinner', true);
       
       try {
-        const response = await fetch(`${API_BASE_URL}/api/clients`, {
+        const response = await fetch(API_BASE_URL + '/api/clients', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1914,7 +1402,7 @@ async function fetchClients(page = 1, limit = pageSize) {
         
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
+          throw new Error(errorData.error || 'Server responded with status: ' + response.status);
         }
         
         const data = await response.json();
@@ -1927,7 +1415,7 @@ async function fetchClients(page = 1, limit = pageSize) {
         await fetchClients(1);
         await loadLeaseStats();
         
-        showNotification('Success', `Client created successfully with ${leaseDuration}-day lease`);
+        showNotification('Success', 'Client created successfully with ' + leaseDuration + '-day lease');
         
       } catch (error) {
         console.error('Error creating client:', error);
@@ -1937,710 +1425,30 @@ async function fetchClients(page = 1, limit = pageSize) {
       }
     });
 
-    // Generate token for client
-  document.getElementById('generate-token-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const clientId = document.getElementById('token-client-id').value;
-    if (!clientId) {
-      showNotification('Error', 'Please select a client', 'error');
-      return;
-    }
-    
-    console.log('=== TOKEN GENERATION START ===');
-    console.log('Selected client ID:', clientId);
-    
-    toggleSpinner('token-spinner', true);
-    
-    try {
-      console.log('Sending token generation request...');
-      
-      const requestBody = {
-        clientId: clientId,
-        adminKey: ADMIN_KEY
-      };
-      
-      console.log('Request body:', requestBody);
-      
-      const response = await fetch(`${API_BASE_URL}/api/auth/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (parseError) {
-          const responseText = await response.text();
-          console.error('Failed to parse error response:', parseError);
-          console.error('Raw response:', responseText);
-          throw new Error(`HTTP ${response.status}: ${response.statusText || 'Unknown error'}`);
-        }
-        
-        console.error('Token generation API error:', errorData);
-        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      // FIXED: Parse response data properly
-      const data = await response.json();
-      console.log('Token generation response:', data);
-      
-      // Validate response structure
-      if (!data || !data.token) {
-        console.error('Invalid response structure:', data);
-        throw new Error('Invalid response: missing token');
-      }
-      
-      // FIXED: Set global variables properly
-      currentClientId = clientId;
-      currentToken = data.token;
-      
-      // Display token and additional information
-      document.getElementById('token-display').textContent = data.token;
-      document.getElementById('token-result').style.display = 'block';
-      
-      // Add additional token information if available
-      if (data.client || data.lease || data.widget) {
-        let additionalInfo = '';
-        
-        if (data.client) {
-          additionalInfo += `\nClient: ${data.client.name}`;
-          additionalInfo += `\nEmail: ${data.client.email}`;
-          additionalInfo += `\nWidget ID: ${data.client.widgetId}`;
-        }
-        
-        if (data.lease) {
-          additionalInfo += `\n\nLease Status: ${data.lease.status}`;
-          additionalInfo += `\nDays Remaining: ${data.lease.daysRemaining}`;
-          additionalInfo += `\nExpiration: ${new Date(data.lease.expirationDate).toLocaleDateString()}`;
-        }
-        
-        if (data.warning) {
-          additionalInfo += `\n\nWarning: ${data.warning.message}`;
-        }
-        
-        // Create or update info section
-        let infoSection = document.getElementById('token-info');
-        if (!infoSection) {
-          infoSection = document.createElement('div');
-          infoSection.id = 'token-info';
-          infoSection.className = 'mt-3 p-3 bg-light rounded';
-          document.getElementById('token-result').appendChild(infoSection);
-        }
-        
-        infoSection.innerHTML = `
-          <h6>Token Details:</h6>
-          <pre style="font-size: 0.8rem; white-space: pre-wrap;">${additionalInfo}</pre>
-        `;
-      }
-      
-      // Show integration code if available
-      if (data.widget && data.widget.integrationCode) {
-        let codeSection = document.getElementById('integration-code');
-        if (!codeSection) {
-          codeSection = document.createElement('div');
-          codeSection.id = 'integration-code';
-          codeSection.className = 'mt-3';
-          document.getElementById('token-result').appendChild(codeSection);
-        }
-        
-        codeSection.innerHTML = `
-          <h6>Integration Code:</h6>
-          <div class="token-display" style="max-height: 200px; overflow-y: auto;">
-            ${escapeHtml(data.widget.integrationCode)}
-          </div>
-          <button class="btn btn-sm btn-outline-info mt-2" onclick="copyIntegrationCode()">
-            <i class="bi bi-code-slash"></i> Copy Integration Code
-          </button>
-        `;
-        
-        // Store integration code globally
-        window.currentIntegrationCode = data.widget.integrationCode;
-      }
-      
-      console.log('=== TOKEN GENERATION SUCCESS ===');
-      showNotification('Success', 'Token generated successfully');
-      
-      // Show warning notifications if present
-      if (data.warning) {
-        setTimeout(() => {
-          showNotification('Warning', data.warning.message, 'warning');
-        }, 1000);
-      }
-      
-    } catch (error) {
-      console.error('=== TOKEN GENERATION ERROR ===');
-      console.error('Error details:', error);
-      console.error('Error stack:', error.stack);
-      
-      let errorMessage = 'Failed to generate token';
-      
-      if (error.message.includes('Failed to fetch')) {
-        errorMessage = 'Network error. Please check your connection.';
-      } else if (error.message.includes('Invalid admin key')) {
-        errorMessage = 'Authentication failed. Please refresh the page.';
-      } else if (error.message.includes('Client not found')) {
-        errorMessage = 'Selected client not found. Please refresh and try again.';
-      } else if (error.message.includes('Lease expired')) {
-        errorMessage = 'Cannot generate token: Client lease has expired.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      showNotification('Error', errorMessage, 'error');
-      
-      // Hide token result section on error
-      document.getElementById('token-result').style.display = 'none';
-      
-    } finally {
-      toggleSpinner('token-spinner', false);
-      console.log('=== TOKEN GENERATION COMPLETE ===');
-    }
-  });
-
-    // Copy token to clipboard
-    document.getElementById('copy-token').addEventListener('click', function() {
-      navigator.clipboard.writeText(currentToken)
-        .then(() => {
-          showNotification('Copied', 'Token copied to clipboard');
-        })
-        .catch(err => {
-          console.error('Failed to copy token:', err);
-          showNotification('Error', 'Failed to copy to clipboard', 'error');
-        });
-    });
-
-// Copy embed code to clipboard - ENHANCED VERSION
-document.getElementById('copy-embed-code').addEventListener('click', function() {
-  if (!currentToken || !currentClientId) {
-    showNotification('Error', 'No token or client ID available', 'error');
-    return;
-  }
-  
-  const serverUrl = API_BASE_URL || window.location.origin;
-  const embedCode = `<script src="${serverUrl}/widget.js"></script>
-<script>
-  window.MyChatWidget.init({
-    token: "${currentToken}",
-    clientId: "${currentClientId}"
-  });
-</script>`;
-  
-  navigator.clipboard.writeText(embedCode)
-    .then(() => {
-      showNotification('Copied', 'Embed code copied to clipboard');
-      
-      // Visual feedback
-      const button = this;
-      const originalText = button.innerHTML;
-      button.innerHTML = '<i class="bi bi-check"></i> Copied!';
-      button.classList.add('btn-success');
-      button.classList.remove('btn-outline-primary');
-      
-      setTimeout(() => {
-        button.innerHTML = originalText;
-        button.classList.remove('btn-success');
-        button.classList.add('btn-outline-primary');
-      }, 2000);
-    })
-    .catch(err => {
-      console.error('Failed to copy embed code:', err);
-      showNotification('Error', 'Failed to copy to clipboard', 'error');
-    });
-});
-
-// Copy integration code function
-function copyIntegrationCode() {
-  if (!window.currentIntegrationCode) {
-    showNotification('Error', 'No integration code available', 'error');
-    return;
-  }
-  
-  navigator.clipboard.writeText(window.currentIntegrationCode)
-    .then(() => {
-      showNotification('Copied', 'Integration code copied to clipboard');
-    })
-    .catch(err => {
-      console.error('Failed to copy integration code:', err);
-      showNotification('Error', 'Failed to copy to clipboard', 'error');
-    });
-}
-
-// Helper function to escape HTML
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// Enhanced token validation function
-async function validateToken(token) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ token })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data;
-    
-  } catch (error) {
-    console.error('Token validation error:', error);
-    return null;
-  }
-}
-
-// Test token functionality
-async function testGeneratedToken() {
-  if (!currentToken) {
-    showNotification('Error', 'No token to test', 'error');
-    return;
-  }
-  
-  console.log('Testing generated token...');
-  
-  try {
-    const validation = await validateToken(currentToken);
-    
-    if (validation && validation.valid) {
-      showNotification('Success', 'Token is valid and working!', 'success');
-      console.log('Token validation result:', validation);
-    } else {
-      showNotification('Warning', 'Token may not be valid', 'warning');
-    }
-    
-  } catch (error) {
-    console.error('Token test error:', error);
-    showNotification('Error', 'Failed to test token', 'error');
-  }
-}
-
-// Add test button to token result section (optional)
-function addTokenTestButton() {
-  const tokenResult = document.getElementById('token-result');
-  if (tokenResult && !document.getElementById('test-token-btn')) {
-    const testButton = document.createElement('button');
-    testButton.id = 'test-token-btn';
-    testButton.className = 'btn btn-sm btn-outline-info';
-    testButton.innerHTML = '<i class="bi bi-shield-check"></i> Test Token';
-    testButton.onclick = testGeneratedToken;
-    
-    const actionButtons = tokenResult.querySelector('.action-buttons');
-    if (actionButtons) {
-      actionButtons.appendChild(testButton);
-    }
-  }
-}
-
-// Enhanced error handling for token generation
-function handleTokenGenerationError(error, context = '') {
-  console.error(`Token Generation Error ${context}:`, error);
-  
-  // Log additional debugging information
-  console.error('Client ID:', currentClientId || 'not set');
-  console.error('Admin Key Present:', !!ADMIN_KEY);
-  console.error('API Base URL:', API_BASE_URL);
-  console.error('Browser Info:', {
-    userAgent: navigator.userAgent,
-    language: navigator.language,
-    platform: navigator.platform
-  });
-  
-  // Show user-friendly error
-  let userMessage = 'An unexpected error occurred while generating the token.';
-  
-  if (error.message.includes('network') || error.message.includes('fetch')) {
-    userMessage = 'Network error: Please check your internet connection and try again.';
-  } else if (error.message.includes('timeout')) {
-    userMessage = 'Request timed out: The server took too long to respond.';
-  } else if (error.message.includes('401') || error.message.includes('unauthorized')) {
-    userMessage = 'Authentication failed: Please refresh the page and try again.';
-  } else if (error.message.includes('403') || error.message.includes('forbidden')) {
-    userMessage = 'Access denied: You may not have permission to generate tokens for this client.';
-  } else if (error.message.includes('404')) {
-    userMessage = 'Client not found: The selected client may have been deleted.';
-  } else if (error.message.includes('500')) {
-    userMessage = 'Server error: Please contact support if this issue persists.';
-  }
-  
-  showNotification('Error', userMessage, 'error');
-}
-
-// Auto-refresh client dropdown when clients change
-function refreshClientDropdown() {
-  updateClientDropdown();
-  
-  // If no clients are available, show helpful message
-  const dropdown = document.getElementById('token-client-id');
-  if (dropdown && dropdown.options.length <= 1) {
-    const option = document.createElement('option');
-    option.value = "";
-    option.textContent = "No active clients available - create a client first";
-    option.disabled = true;
-    dropdown.appendChild(option);
-  }
-}
-
-// Initialize token generation enhancements
-document.addEventListener('DOMContentLoaded', function() {
-  // Refresh client dropdown initially
-  setTimeout(refreshClientDropdown, 1000);
-  
-  // Add event listeners for enhanced functionality
-  const tokenClientSelect = document.getElementById('token-client-id');
-  if (tokenClientSelect) {
-    tokenClientSelect.addEventListener('change', function() {
-      // Clear previous token result when client changes
-      const tokenResult = document.getElementById('token-result');
-      if (tokenResult) {
-        tokenResult.style.display = 'none';
-      }
-      
-      currentToken = '';
-      currentClientId = '';
-    });
-  }
-});
-
-// Export functions for global access
-window.testGeneratedToken = testGeneratedToken;
-window.copyIntegrationCode = copyIntegrationCode;
-window.validateToken = validateToken;
-window.refreshClientDropdown = refreshClientDropdown;
-
-
-    // Open edit client modal
-    function openEditClientModal(clientId) {
-      const client = clients.find(c => c.clientId === clientId);
-      if (!client) return;
-      
-      document.getElementById('edit-client-id').value = client.clientId;
-      document.getElementById('edit-client-name').value = client.name;
-      document.getElementById('edit-allowed-domains').value = client.allowedDomains ? client.allowedDomains.join(', ') : '';
-      document.getElementById('edit-client-active').checked = client.active;
-      document.getElementById('edit-auto-renewal').checked = client.leaseInfo?.autoRenewal || false;
-      
-      const customization = client.chatbotConfig?.customization || {};
-      document.getElementById('edit-primary-color').value = customization.primaryColor || '#0084ff';
-      document.getElementById('edit-secondary-color').value = customization.secondaryColor || '#ffffff';
-      document.getElementById('edit-header-text').value = customization.headerText || 'Chat with us';
-      
-      editClientModal.show();
-    }
-
-    // Save client changes
-    document.getElementById('save-client-changes').addEventListener('click', async function() {
-      const clientId = document.getElementById('edit-client-id').value;
-      const allowedDomainsStr = document.getElementById('edit-allowed-domains').value.trim();
-      const active = document.getElementById('edit-client-active').checked;
-      const autoRenewal = document.getElementById('edit-auto-renewal').checked;
-      
-      let allowedDomains = [];
-      if (allowedDomainsStr) {
-        allowedDomains = allowedDomainsStr.split(',').map(domain => domain.trim());
-      }
-      
-      const customization = {
-        primaryColor: document.getElementById('edit-primary-color').value,
-        secondaryColor: document.getElementById('edit-secondary-color').value,
-        headerText: document.getElementById('edit-header-text').value.trim()
-      };
-      
-      toggleSpinner('save-spinner', true);
-      
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': ADMIN_KEY
-          },
-          body: JSON.stringify({
-            active,
-            allowedDomains,
-            customization,
-            autoRenewal,
-            adminKey: ADMIN_KEY
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
-        }
-        
-        await fetchClients(currentPage);
-        editClientModal.hide();
-        showNotification('Success', 'Client updated successfully');
-      } catch (error) {
-        console.error('Error updating client:', error);
-        showNotification('Error', 'Failed to update client: ' + error.message, 'error');
-      } finally {
-        toggleSpinner('save-spinner', false);
-      }
-    });
-
-    // Toggle client status
-    async function toggleClientStatus(clientId, activate, buttonElement) {
-      if (buttonElement) {
-        buttonElement.disabled = true;
-      }
-      
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': ADMIN_KEY
-          },
-          body: JSON.stringify({
-            active: activate,
-            adminKey: ADMIN_KEY
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
-        }
-        
-        await fetchClients(currentPage);
-        await loadLeaseStats();
-        
-        showNotification('Success', `Client ${activate ? 'activated' : 'deactivated'} successfully`);
-      } catch (error) {
-        console.error('Error toggling client status:', error);
-        showNotification('Error', 'Failed to update client status: ' + error.message, 'error');
-      } finally {
-        if (buttonElement) {
-          buttonElement.disabled = false;
-        }
-      }
-    }
-    
-    // Delete client function
-    async function deleteClient(clientId, buttonElement) {
-      if (!confirm(`Are you sure you want to permanently delete client ${clientId}? This action cannot be undone.`)) {
-        return;
-      }
-      
-      if (buttonElement) {
-        buttonElement.disabled = true;
-      }
-      
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}?confirm=true`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': ADMIN_KEY
-          }
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
-        }
-        
-        const shouldGoBack = clients.length === 1 && currentPage > 1;
-        
-        await fetchClients(shouldGoBack ? currentPage - 1 : currentPage);
-        await loadLeaseStats();
-        
-        showNotification('Success', 'Client deleted successfully');
-      } catch (error) {
-        console.error('Error deleting client:', error);
-        showNotification('Error', 'Failed to delete client: ' + error.message, 'error');
-      } finally {
-        if (buttonElement) {
-          buttonElement.disabled = false;
-        }
-      }
-    }
-
-    // Helper function to copy text to clipboard
-    window.copyToClipboard = function(text) {
-      navigator.clipboard.writeText(text)
-        .then(() => {
-          showNotification('Copied', 'Copied to clipboard');
-        })
-        .catch(err => {
-          console.error('Failed to copy:', err);
-          showNotification('Error', 'Failed to copy to clipboard', 'error');
-        });
-    };
-
-    // Auto-refresh lease stats every 5 minutes
-    setInterval(loadLeaseStats, 5 * 60 * 1000);
-    
-    // Auto-refresh client list every 2 minutes to catch lease status changes
-    setInterval(() => {
+    // Refresh clients button
+    document.getElementById('refresh-clients').addEventListener('click', function() {
       fetchClients(currentPage);
-    }, 2 * 60 * 1000);
-
-    // Handle window resize for responsive updates
-    window.addEventListener('resize', function() {
-      // Update table scroll indicators on resize
-      const tableResponsive = document.querySelector('.table-responsive');
-      if (tableResponsive) {
-        const table = tableResponsive.querySelector('table');
-        if (table && table.scrollWidth > tableResponsive.clientWidth) {
-          tableResponsive.classList.add('scroll-indicator');
-        } else {
-          tableResponsive.classList.remove('scroll-indicator');
-        }
-      }
     });
 
-    // Add touch support for mobile
-    if ('ontouchstart' in window) {
-      document.body.classList.add('touch-device');
-      
-      // Add touch feedback for buttons
-      document.addEventListener('touchstart', function(e) {
-        if (e.target.classList.contains('btn')) {
-          e.target.style.transform = 'scale(0.95)';
-        }
-      });
-      
-      document.addEventListener('touchend', function(e) {
-        if (e.target.classList.contains('btn')) {
-          setTimeout(() => {
-            e.target.style.transform = '';
-          }, 100);
-        }
-      });
+    // Placeholder functions for modal operations
+    function openEditClientModal(clientId) {
+      // Placeholder - implement modal logic
+      console.log('Edit client:', clientId);
     }
 
-    // Enhanced error handling for network issues
-    window.addEventListener('online', function() {
-      showNotification('Connected', 'Internet connection restored', 'success');
-      // Refresh data when connection is restored
-      setTimeout(() => {
-        fetchClients(currentPage);
-        loadLeaseStats();
-      }, 1000);
-    });
-
-    window.addEventListener('offline', function() {
-      showNotification('Offline', 'No internet connection', 'warning');
-    });
-
-    // Add keyboard shortcuts for power users
-    document.addEventListener('keydown', function(e) {
-      // Ctrl/Cmd + R for refresh
-      if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-        e.preventDefault();
-        fetchClients(currentPage);
-        loadLeaseStats();
-        showNotification('Refreshed', 'Data refreshed manually');
-      }
-      
-      // Escape to close modals
-      if (e.key === 'Escape') {
-        const modals = document.querySelectorAll('.modal.show');
-        modals.forEach(modal => {
-          const modalInstance = bootstrap.Modal.getInstance(modal);
-          if (modalInstance) {
-            modalInstance.hide();
-          }
-        });
-      }
-    });
-
-    // Initialize accessibility features
-    function initializeAccessibility() {
-      // Add ARIA labels to interactive elements
-      document.querySelectorAll('.copyable').forEach(element => {
-        element.setAttribute('role', 'button');
-        element.setAttribute('tabindex', '0');
-        element.setAttribute('aria-label', 'Click to copy to clipboard');
-        
-        // Add keyboard support
-        element.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            this.click();
-          }
-        });
-      });
-      
-      // Add screen reader announcements for dynamic content
-      const liveRegion = document.createElement('div');
-      liveRegion.setAttribute('aria-live', 'polite');
-      liveRegion.setAttribute('aria-atomic', 'true');
-      liveRegion.className = 'sr-only';
-      liveRegion.id = 'live-region';
-      document.body.appendChild(liveRegion);
+    function openLeaseManagementModal(clientId) {
+      // Placeholder - implement modal logic
+      console.log('Manage lease for client:', clientId);
     }
 
-    // Announce updates to screen readers
-    function announceToScreenReader(message) {
-      const liveRegion = document.getElementById('live-region');
-      if (liveRegion) {
-        liveRegion.textContent = message;
-        setTimeout(() => {
-          liveRegion.textContent = '';
-        }, 1000);
-      }
+    function toggleClientStatus(clientId, activate, buttonElement) {
+      // Placeholder - implement toggle logic
+      console.log('Toggle client status:', clientId, activate);
     }
 
-    // Initialize accessibility features when DOM is ready
-    document.addEventListener('DOMContentLoaded', initializeAccessibility);
-
-    // Add loading states for better UX
-    function setLoadingState(isLoading) {
-      const buttons = document.querySelectorAll('.btn:not(.btn-close)');
-      const inputs = document.querySelectorAll('.form-control, .form-select');
-      
-      buttons.forEach(btn => {
-        btn.disabled = isLoading;
-        if (isLoading) {
-          btn.classList.add('loading');
-        } else {
-          btn.classList.remove('loading');
-        }
-      });
-      
-      inputs.forEach(input => {
-        input.disabled = isLoading;
-      });
-    }
-
-    // Enhanced console logging for debugging
-    if (window.location.hostname === 'localhost' || window.location.hostname.includes('dev')) {
-      console.log('Chatbot Lease Management Dashboard Debug Mode');
-      console.log('API Base URL:', API_BASE_URL || 'Same origin');
-      console.log('Admin Key Set:', !!ADMIN_KEY);
-      
-      // Add debug utilities to window object
-      window.debugDashboard = {
-        fetchClients: () => fetchClients(currentPage),
-        loadStats: loadLeaseStats,
-        getCurrentClients: () => clients,
-        getConfig: () => ({
-          currentPage,
-          totalPages,
-          pageSize,
-          totalClients,
-          API_BASE_URL
-        })
-      };
+    function deleteClient(clientId, buttonElement) {
+      // Placeholder - implement delete logic
+      console.log('Delete client:', clientId);
     }
   </script>
 </body>
