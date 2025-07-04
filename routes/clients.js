@@ -75,6 +75,7 @@ router.get('/lease-dashboard', verifyAdmin, async (req, res) => {
         
         // Duration breakdown
         leaseDuration: {
+          oneDay: await Client.countDocuments({ 'leaseConfig.duration': 1 }),
           sevenDays: await Client.countDocuments({ 'leaseConfig.duration': 7 }),
           fourteenDays: await Client.countDocuments({ 'leaseConfig.duration': 14 }),
           thirtyDays: await Client.countDocuments({ 'leaseConfig.duration': 30 })
@@ -333,11 +334,11 @@ router.post('/bulk-lease-operation', verifyAdmin, async (req, res) => {
       });
     }
     
-    if (operation === 'renew' && (!duration || ![7, 14, 30].includes(duration))) {
+    if (operation === 'renew' && (!duration || ![1, 7, 14, 30].includes(duration))) {
       return res.status(400).json({
         error: 'Invalid duration for renewal',
-        message: 'Duration must be 7, 14, or 30 days for renewal',
-        allowedDurations: [7, 14, 30]
+        message: 'Duration must be 1, 7, 14, or 30 days for renewal',
+        allowedDurations: [1, 7, 14, 30]
       });
     }
     
@@ -708,11 +709,11 @@ router.post('/', verifyAdmin, async (req, res) => {
     }
     
     // Validate lease duration
-    if (![7, 14, 30].includes(leaseDuration)) {
+    if (![1, 7, 14, 30].includes(leaseDuration)) {
       return res.status(400).json({ 
         error: 'Invalid lease duration',
-        message: 'Lease duration must be 7, 14, or 30 days',
-        allowedDurations: [7, 14, 30],
+        message: 'Lease duration must be 1, 7, 14, or 30 days',
+        allowedDurations: [1, 7, 14, 30],
         received: leaseDuration
       });
     }
@@ -1020,11 +1021,11 @@ router.put('/:clientId', verifyAdmin, async (req, res) => {
     
     // Renew lease if requested
     if (renewLease && leaseDuration) {
-      if (![7, 14, 30].includes(leaseDuration)) {
+      if (![1, 7, 14, 30].includes(leaseDuration)) {
         return res.status(400).json({ 
           error: 'Invalid lease duration',
-          message: 'Lease duration must be 7, 14, or 30 days',
-          allowedDurations: [7, 14, 30]
+          message: 'Lease duration must be 1, 7, 14, or 30 days',
+          allowedDurations: [1, 7, 14, 30]
         });
       }
       
@@ -1256,11 +1257,11 @@ router.post('/:clientId/renew-lease', verifyAdmin, async (req, res) => {
     const { clientId } = req.params;
     const { duration } = req.body;
     
-    if (!duration || ![7, 14, 30].includes(duration)) {
+    if (!duration || ![1, 7, 14, 30].includes(duration)) {
       return res.status(400).json({ 
         error: 'Invalid duration',
-        message: 'Duration must be 7, 14, or 30 days',
-        allowedDurations: [7, 14, 30]
+        message: 'Duration must be 1, 7, 14, or 30 days',
+        allowedDurations: [1, 7, 14, 30]
       });
     }
     

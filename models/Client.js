@@ -43,7 +43,7 @@ const clientSchema = new mongoose.Schema({
     duration: {
       type: Number,
       required: true,
-      enum: [7, 14, 30],
+      enum: [1, 7, 14, 30], // ADD 1 here
       default: 30
     },
     startDate: {
@@ -197,6 +197,10 @@ clientSchema.methods.getLeaseStatus = function() {
   const timeUntilExpiration = this.leaseConfig.expirationDate - now;
   const daysUntilExpiration = Math.ceil(timeUntilExpiration / (1000 * 60 * 60 * 24));
   
+  // UPDATED: Adjust warning thresholds for 1-day leases
+  const isOneDayLease = this.leaseConfig.duration === 1;
+  const warningThreshold = isOneDayLease ? 0.5 : 3; // 12 hours for 1-day, 3 days for others
+  
   if (this.isLeaseExpired()) {
     return {
       status: 'expired',
@@ -213,13 +217,17 @@ clientSchema.methods.getLeaseStatus = function() {
       gracePeriodActive: true,
       message: 'In grace period - lease expired but still accessible'
     };
-  } else if (daysUntilExpiration <= 3) {
+  } else if (daysUntilExpiration <= warningThreshold) {
+    const timeMessage = isOneDayLease && daysUntilExpiration < 1 ? 
+      `${Math.round(timeUntilExpiration / (1000 * 60 * 60))} hours` : 
+      `${daysUntilExpiration} day${daysUntilExpiration !== 1 ? 's' : ''}`;
+      
     return {
       status: 'expiring_soon',
       daysRemaining: daysUntilExpiration,
       expirationDate: this.leaseConfig.expirationDate,
       gracePeriodActive: false,
-      message: `Lease expires in ${daysUntilExpiration} day${daysUntilExpiration !== 1 ? 's' : ''}`
+      message: `Lease expires in ${timeMessage}`
     };
   } else {
     return {
@@ -230,7 +238,7 @@ clientSchema.methods.getLeaseStatus = function() {
       message: `Lease active for ${daysUntilExpiration} more days`
     };
   }
-};
+}
 
 // Method to renew lease
 clientSchema.methods.renewLease = function(newDuration, renewedBy = 'system') {

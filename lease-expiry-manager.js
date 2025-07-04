@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 const Client = require('./models/Client'); // Adjust path as needed
 
 // Configuration
-const CRON_SCHEDULE = '0 */6 * * *'; // Run every 6 hours
+const CRON_SCHEDULE = '0 */2 * * *'; // Run every 2 hours
 const MONGODB_URI = process.env.MONGODB_URI;
 const NOTIFICATION_WEBHOOK = process.env.NOTIFICATION_WEBHOOK; // Optional webhook for notifications
 
@@ -152,26 +152,39 @@ class LeaseExpiryManager {
     }
   }
 
-  async findExpiringClients() {
-    try {
-      const now = new Date();
-      const threeDaysFromNow = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000));
-      
-      // Find clients expiring within 3 days
-      const expiringClients = await Client.find({
-        'leaseConfig.expirationDate': { $gt: now, $lt: threeDaysFromNow },
-        'leaseConfig.isExpired': false,
-        active: true
-      }).select('clientId name email leaseConfig');
-      
-      console.log(`LeaseExpiryManager: Found ${expiringClients.length} expiring clients`);
-      return expiringClients;
-      
-    } catch (error) {
-      console.error('LeaseExpiryManager: Error finding expiring clients:', error);
-      throw error;
-    }
+// Update findExpiringClients method:
+async findExpiringClients() {
+  try {
+    const now = new Date();
+    const sixHoursFromNow = new Date(now.getTime() + (6 * 60 * 60 * 1000)); // 6 hours for 1-day leases
+    const threeDaysFromNow = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000));
+    
+    // Find clients expiring within 6 hours (for 1-day) or 3 days (for longer leases)
+    const expiringClients = await Client.find({
+      $or: [
+        {
+          'leaseConfig.duration': 1,
+          'leaseConfig.expirationDate': { $gt: now, $lt: sixHoursFromNow },
+          'leaseConfig.isExpired': false,
+          active: true
+        },
+        {
+          'leaseConfig.duration': { $gt: 1 },
+          'leaseConfig.expirationDate': { $gt: now, $lt: threeDaysFromNow },
+          'leaseConfig.isExpired': false,
+          active: true
+        }
+      ]
+    }).select('clientId name email leaseConfig');
+    
+    console.log(`LeaseExpiryManager: Found ${expiringClients.length} expiring clients`);
+    return expiringClients;
+    
+  } catch (error) {
+    console.error('LeaseExpiryManager: Error finding expiring clients:', error);
+    throw error;
   }
+}
 
   async processExpiredClients(expiredClients) {
     const results = {

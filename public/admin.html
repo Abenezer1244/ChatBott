@@ -354,6 +354,7 @@
               <div class="mb-3">
                 <label for="lease-duration" class="form-label">Lease Duration</label>
                 <select class="form-select" id="lease-duration" required>
+                  <option value="1">1 Day (Trial)</option>
                   <option value="7">7 Days</option>
                   <option value="14">14 Days</option>
                   <option value="30" selected>30 Days</option>
@@ -434,6 +435,7 @@
           <label for="duration-filter" class="form-label">Duration Filter</label>
           <select class="form-select form-select-sm" id="duration-filter">
             <option value="">All Durations</option>
+            <option value="1">1 Day</option>
             <option value="7">7 Days</option>
             <option value="14">14 Days</option>
             <option value="30">30 Days</option>
@@ -536,6 +538,7 @@
                   <div class="mb-3">
                     <label for="renew-duration" class="form-label">New Duration</label>
                     <select class="form-select" id="renew-duration" required>
+                      <option value="1">1 Day (Trial)</option>
                       <option value="7">7 Days</option>
                       <option value="14">14 Days</option>
                       <option value="30">30 Days</option>
@@ -837,17 +840,21 @@
     }
 
     // Get progress bar for days remaining
+    // In getDaysProgressBar function:
     function getDaysProgressBar(leaseStatus) {
       if (leaseStatus.status === 'expired') {
         return '<div class="progress-days"><div class="progress-fill expired" style="width: 100%"></div></div>';
       }
       
-      const totalDays = 30; // Assuming max 30 days for progress calculation
+      // UPDATED: Dynamic total days based on actual lease duration
+      const client = clients.find(c => c.leaseStatus === leaseStatus);
+      const totalDays = client && client.leaseInfo && client.leaseInfo.duration || 30;
+      
       const remaining = Math.max(0, leaseStatus.daysRemaining);
       const percentage = Math.min(100, (remaining / totalDays) * 100);
       
       let progressClass = 'active';
-      if (remaining <= 3) progressClass = 'expiring';
+      if (remaining <= 1) progressClass = 'expiring';  // For 1-day leases, this triggers immediately
       if (remaining <= 0) progressClass = 'expired';
       
       return '<div class="progress-days"><div class="progress-fill ' + progressClass + '" style="width: ' + percentage + '%"></div></div>';

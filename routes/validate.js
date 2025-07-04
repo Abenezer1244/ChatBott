@@ -400,11 +400,11 @@ router.post('/lease/renew', async (req, res) => {
       });
     }
     
-    if (![7, 14, 30].includes(duration)) {
+    if (![1, 7, 14, 30].includes(duration)) {
       return res.status(400).json({ 
         error: 'Invalid duration',
-        message: 'Duration must be 7, 14, or 30 days',
-        allowedDurations: [7, 14, 30],
+        message: 'Duration must be 1, 7, 14, or 30 days',
+        allowedDurations: [1, 7, 14, 30],
         received: duration
       });
     }
@@ -968,6 +968,7 @@ router.get('/stats', async (req, res) => {
       }),
       
       // Duration breakdown
+      duration1Day: await Client.countDocuments({ 'leaseConfig.duration': 1 }),
       duration7Days: await Client.countDocuments({ 'leaseConfig.duration': 7 }),
       duration14Days: await Client.countDocuments({ 'leaseConfig.duration': 14 }),
       duration30Days: await Client.countDocuments({ 'leaseConfig.duration': 30 }),
@@ -1181,11 +1182,11 @@ router.post('/lease/bulk-renew', async (req, res) => {
       });
     }
     
-    if (![7, 14, 30].includes(duration)) {
+    if (![1, 7, 14, 30].includes(duration)) {
       return res.status(400).json({ 
         error: 'Invalid duration',
-        message: 'Duration must be 7, 14, or 30 days',
-        allowedDurations: [7, 14, 30]
+        message: 'Duration must be 1, 7, 14, or 30 days',
+        allowedDurations: [1, 7, 14, 30]
       });
     }
     
