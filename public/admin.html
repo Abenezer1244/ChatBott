@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chatbot Management Dashboard</title>
+  <title>Chatbot Lease Management Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
   <style>
     body {
       background-color: #f8f9fa;
@@ -19,9 +20,28 @@
       color: white;
       font-weight: bold;
     }
-    .form-label {
-      font-weight: 500;
+    .lease-status-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
     }
+    .lease-expired { background-color: #dc3545; }
+    .lease-expiring { background-color: #fd7e14; }
+    .lease-active { background-color: #198754; }
+    .lease-grace { background-color: #ffc107; color: #000; }
+    
+    .stats-card {
+      border-left: 4px solid #0d6efd;
+    }
+    .stats-card.danger {
+      border-left-color: #dc3545;
+    }
+    .stats-card.warning {
+      border-left-color: #ffc107;
+    }
+    .stats-card.success {
+      border-left-color: #198754;
+    }
+    
     .client-row:hover {
       background-color: #f1f5f9;
     }
@@ -41,185 +61,394 @@
       border: 1px solid #ced4da;
       margin-top: 10px;
     }
-    .spinner-border {
-      width: 1rem;
-      height: 1rem;
-      margin-right: 0.5rem;
-    }
     .loading {
       display: none;
       justify-content: center;
       margin: 20px 0;
     }
-    .pagination-container {
+    .lease-actions {
       display: flex;
-      justify-content: center;
-      margin-top: 20px;
+      gap: 0.25rem;
+      flex-wrap: wrap;
     }
-    .page-info {
-      margin: 10px 0;
-      text-align: center;
-      color: #6c757d;
+    .progress-days {
+      height: 4px;
+      background-color: #e9ecef;
+      border-radius: 2px;
+      overflow: hidden;
     }
+    .progress-fill {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+    .progress-fill.active { background-color: #198754; }
+    .progress-fill.expiring { background-color: #fd7e14; }
+    .progress-fill.expired { background-color: #dc3545; }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container-fluid">
     <div class="row mb-4">
       <div class="col">
-        <h1 class="text-center">Chatbot Management Dashboard</h1>
+        <h1 class="text-center"><i class="bi bi-calendar-check"></i> Chatbot Lease Management Dashboard</h1>
       </div>
     </div>
 
-    <!-- Main Dashboard -->
-    <div id="dashboard-container">
-      <div class="row">
-        <!-- Create New Client Card -->
-        <div class="col-md-6">
-          <div class="card">
-            <div class="card-header">Create New Client</div>
-            <div class="card-body">
-              <form id="create-client-form">
-                <div class="mb-3">
-                  <label for="client-name" class="form-label">Client Name</label>
-                  <input type="text" class="form-control" id="client-name" required>
-                </div>
-                <div class="mb-3">
-                  <label for="client-email" class="form-label">Client Email</label>
-                  <input type="email" class="form-control" id="client-email" required>
-                </div>
-                <div class="mb-3">
-                  <label for="allowed-domains" class="form-label">Allowed Domains (comma separated)</label>
-                  <input type="text" class="form-control" id="allowed-domains" placeholder="example.com, client-site.org">
-                  <div class="form-text">Leave empty to allow all domains</div>
-                </div>
-                <button type="submit" class="btn btn-success">
-                  <span class="spinner-border spinner-border-sm d-none" id="create-spinner"></span>
-                  Create Client
-                </button>
-              </form>
+    <!-- Lease Statistics Cards -->
+    <div class="row mb-4">
+      <div class="col-md-3">
+        <div class="card stats-card success">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h6 class="card-title text-muted">Active Leases</h6>
+                <h3 class="mb-0" id="active-leases-count">-</h3>
+              </div>
+              <div class="text-success">
+                <i class="bi bi-check-circle-fill" style="font-size: 2rem;"></i>
+              </div>
             </div>
           </div>
         </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card stats-card warning">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h6 class="card-title text-muted">Expiring Soon</h6>
+                <h3 class="mb-0" id="expiring-soon-count">-</h3>
+              </div>
+              <div class="text-warning">
+                <i class="bi bi-exclamation-triangle-fill" style="font-size: 2rem;"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card stats-card danger">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h6 class="card-title text-muted">Expired</h6>
+                <h3 class="mb-0" id="expired-count">-</h3>
+              </div>
+              <div class="text-danger">
+                <i class="bi bi-x-circle-fill" style="font-size: 2rem;"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card stats-card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h6 class="card-title text-muted">Total Clients</h6>
+                <h3 class="mb-0" id="total-clients-count">-</h3>
+              </div>
+              <div class="text-primary">
+                <i class="bi bi-people-fill" style="font-size: 2rem;"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-        <!-- Generate Token Card -->
-        <div class="col-md-6">
-          <div class="card">
-            <div class="card-header">Generate Token</div>
-            <div class="card-body">
-              <form id="generate-token-form">
-                <div class="mb-3">
-                  <label for="token-client-id" class="form-label">Client ID</label>
-                  <select class="form-select" id="token-client-id" required>
-                    <option value="" selected disabled>Select a client</option>
-                  </select>
-                </div>
-                <button type="submit" class="btn btn-primary">
-                  <span class="spinner-border spinner-border-sm d-none" id="token-spinner"></span>
-                  Generate Token
+    <div class="row">
+      <!-- Create New Client with Lease Selection -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <i class="bi bi-person-plus"></i> Create New Client
+          </div>
+          <div class="card-body">
+            <form id="create-client-form">
+              <div class="mb-3">
+                <label for="client-name" class="form-label">Client Name</label>
+                <input type="text" class="form-control" id="client-name" required>
+              </div>
+              <div class="mb-3">
+                <label for="client-email" class="form-label">Client Email</label>
+                <input type="email" class="form-control" id="client-email" required>
+              </div>
+              <div class="mb-3">
+                <label for="lease-duration" class="form-label">Lease Duration</label>
+                <select class="form-select" id="lease-duration" required>
+                  <option value="7">7 Days</option>
+                  <option value="14">14 Days</option>
+                  <option value="30" selected>30 Days</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="allowed-domains" class="form-label">Allowed Domains (comma separated)</label>
+                <input type="text" class="form-control" id="allowed-domains" placeholder="example.com, client-site.org">
+                <div class="form-text">Leave empty to allow all domains</div>
+              </div>
+              <button type="submit" class="btn btn-success">
+                <span class="spinner-border spinner-border-sm d-none" id="create-spinner"></span>
+                <i class="bi bi-plus-circle"></i> Create Client
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Generate Token Card -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <i class="bi bi-key"></i> Generate Token
+          </div>
+          <div class="card-body">
+            <form id="generate-token-form">
+              <div class="mb-3">
+                <label for="token-client-id" class="form-label">Client ID</label>
+                <select class="form-select" id="token-client-id" required>
+                  <option value="" selected disabled>Select a client</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary">
+                <span class="spinner-border spinner-border-sm d-none" id="token-spinner"></span>
+                <i class="bi bi-key-fill"></i> Generate Token
+              </button>
+            </form>
+            <div id="token-result" class="mt-3" style="display: none;">
+              <h5>Generated Token:</h5>
+              <div class="token-display" id="token-display"></div>
+              <div class="mt-2">
+                <button class="btn btn-sm btn-outline-secondary" id="copy-token">
+                  <i class="bi bi-clipboard"></i> Copy Token
                 </button>
-              </form>
-              <div id="token-result" class="mt-3" style="display: none;">
-                <h5>Generated Token:</h5>
-                <div class="token-display" id="token-display"></div>
-                <div class="mt-2">
-                  <button class="btn btn-sm btn-outline-secondary" id="copy-token">
-                    <i class="bi bi-clipboard"></i> Copy Token
+                <button class="btn btn-sm btn-outline-primary" id="copy-embed-code">
+                  <i class="bi bi-code-slash"></i> Copy Embed Code
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lease Management Actions -->
+    <div class="row mb-4">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <i class="bi bi-tools"></i> Lease Management Actions
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-4">
+                <h6>Bulk Lease Operations</h6>
+                <button class="btn btn-outline-warning btn-sm" id="expire-clients-btn">
+                  <i class="bi bi-x-circle"></i> Expire Overdue Clients
+                </button>
+              </div>
+              <div class="col-md-4">
+                <h6>Lease Filters</h6>
+                <select class="form-select form-select-sm" id="lease-status-filter">
+                  <option value="">All Lease Status</option>
+                  <option value="active">Active</option>
+                  <option value="expiring_soon">Expiring Soon</option>
+                  <option value="expired">Expired</option>
+                  <option value="grace_period">Grace Period</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <h6>Duration Filter</h6>
+                <select class="form-select form-select-sm" id="duration-filter">
+                  <option value="">All Durations</option>
+                  <option value="7">7 Days</option>
+                  <option value="14">14 Days</option>
+                  <option value="30">30 Days</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client List with Lease Information -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-table"></i> Client List with Lease Status</span>
+        <button id="refresh-clients" class="btn btn-sm btn-outline-light">
+          <span class="spinner-border spinner-border-sm d-none" id="refresh-spinner"></span>
+          <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+      </div>
+      <div class="card-body">
+        <div id="clients-loading" class="loading">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <span class="ms-2">Loading clients...</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Client ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Lease Status</th>
+                <th>Days Remaining</th>
+                <th>Duration</th>
+                <th>Renewals</th>
+                <th>Requests</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="client-list">
+              <!-- Client rows will be added here -->
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Pagination Controls -->
+        <div class="page-info" id="page-info">
+          Showing clients <span id="start-index">1</span>-<span id="end-index">10</span> of <span id="total-clients">0</span>
+        </div>
+        <div class="d-flex justify-content-center">
+          <nav aria-label="Client list pagination">
+            <ul class="pagination" id="pagination-controls">
+              <!-- Pagination controls will be added here -->
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lease Management Modal -->
+    <div class="modal fade" id="leaseManagementModal" tabindex="-1" aria-labelledby="leaseManagementModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="leaseManagementModalLabel">
+              <i class="bi bi-calendar-check"></i> Lease Management
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row">
+              <div class="col-md-6">
+                <h6>Client Information</h6>
+                <p><strong>Name:</strong> <span id="modal-client-name"></span></p>
+                <p><strong>Email:</strong> <span id="modal-client-email"></span></p>
+                <p><strong>Client ID:</strong> <span id="modal-client-id"></span></p>
+              </div>
+              <div class="col-md-6">
+                <h6>Current Lease Status</h6>
+                <p><strong>Status:</strong> <span id="modal-lease-status"></span></p>
+                <p><strong>Days Remaining:</strong> <span id="modal-days-remaining"></span></p>
+                <p><strong>Expiration Date:</strong> <span id="modal-expiration-date"></span></p>
+                <p><strong>Renewals:</strong> <span id="modal-renewal-count"></span></p>
+              </div>
+            </div>
+            
+            <hr>
+            
+            <div class="row">
+              <div class="col-md-6">
+                <h6>Renew Lease</h6>
+                <form id="renew-lease-form">
+                  <input type="hidden" id="renew-client-id">
+                  <div class="mb-3">
+                    <label for="renew-duration" class="form-label">New Duration</label>
+                    <select class="form-select" id="renew-duration" required>
+                      <option value="7">7 Days</option>
+                      <option value="14">14 Days</option>
+                      <option value="30">30 Days</option>
+                    </select>
+                  </div>
+                  <button type="submit" class="btn btn-success">
+                    <span class="spinner-border spinner-border-sm d-none" id="renew-spinner"></span>
+                    <i class="bi bi-arrow-clockwise"></i> Renew Lease
                   </button>
-                  <button class="btn btn-sm btn-outline-primary" id="copy-embed-code">
-                    <i class="bi bi-code-slash"></i> Copy Embed Code
+                </form>
+              </div>
+              <div class="col-md-6">
+                <h6>Extend Current Lease</h6>
+                <form id="extend-lease-form">
+                  <input type="hidden" id="extend-client-id">
+                  <div class="mb-3">
+                    <label for="extend-days" class="form-label">Additional Days</label>
+                    <input type="number" class="form-control" id="extend-days" min="1" max="90" required>
+                  </div>
+                  <button type="submit" class="btn btn-warning">
+                    <span class="spinner-border spinner-border-sm d-none" id="extend-spinner"></span>
+                    <i class="bi bi-plus-circle"></i> Extend Lease
                   </button>
+                </form>
+              </div>
+            </div>
+            
+            <hr>
+            
+            <div class="row">
+              <div class="col-md-12">
+                <h6>Lease History</h6>
+                <div id="lease-history-container">
+                  <div class="text-muted">Loading lease history...</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- Client List Card -->
-      <div class="card mt-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <span>Client List</span>
-          <button id="refresh-clients" class="btn btn-sm btn-outline-light">
-            <span class="spinner-border spinner-border-sm d-none" id="refresh-spinner"></span>
-            Refresh
-          </button>
-        </div>
-        <div class="card-body">
-          <div id="clients-loading" class="loading">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-            <span class="ms-2">Loading clients...</span>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-hover">
-              <thead>
-                <tr>
-                  <th>Client ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Status</th>
-                  <th>Requests</th>
-                  <th>Last Active</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="client-list">
-                <!-- Client rows will be added here -->
-              </tbody>
-            </table>
-          </div>
-          
-          <!-- Pagination Controls -->
-          <div class="page-info" id="page-info">
-            Showing clients <span id="start-index">1</span>-<span id="end-index">10</span> of <span id="total-clients">0</span>
-          </div>
-          <div class="pagination-container">
-            <nav aria-label="Client list pagination">
-              <ul class="pagination" id="pagination-controls">
-                <!-- Pagination controls will be added here -->
-              </ul>
-            </nav>
-          </div>
-        </div>
-      </div>
     </div>
 
-    <!-- Edit Client Modal -->
+    <!-- Edit Client Modal (Enhanced) -->
     <div class="modal fade" id="editClientModal" tabindex="-1" aria-labelledby="editClientModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="editClientModalLabel">Edit Client</h5>
+            <h5 class="modal-title" id="editClientModalLabel">
+              <i class="bi bi-pencil-square"></i> Edit Client
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <form id="edit-client-form">
               <input type="hidden" id="edit-client-id">
-              <div class="mb-3">
-                <label for="edit-client-name" class="form-label">Client Name</label>
-                <input type="text" class="form-control" id="edit-client-name" disabled>
-              </div>
-              <div class="mb-3">
-                <label for="edit-allowed-domains" class="form-label">Allowed Domains (comma separated)</label>
-                <input type="text" class="form-control" id="edit-allowed-domains">
-              </div>
-              <div class="mb-3 form-check">
-                <input type="checkbox" class="form-check-input" id="edit-client-active">
-                <label class="form-check-label" for="edit-client-active">Active</label>
-              </div>
-              <div class="mb-3">
-                <label for="edit-primary-color" class="form-label">Primary Color</label>
-                <input type="color" class="form-control form-control-color" id="edit-primary-color" value="#0084ff">
-              </div>
-              <div class="mb-3">
-                <label for="edit-secondary-color" class="form-label">Secondary Color</label>
-                <input type="color" class="form-control form-control-color" id="edit-secondary-color" value="#ffffff">
-              </div>
-              <div class="mb-3">
-                <label for="edit-header-text" class="form-label">Header Text</label>
-                <input type="text" class="form-control" id="edit-header-text" value="Chat with us">
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label for="edit-client-name" class="form-label">Client Name</label>
+                    <input type="text" class="form-control" id="edit-client-name" disabled>
+                  </div>
+                  <div class="mb-3">
+                    <label for="edit-allowed-domains" class="form-label">Allowed Domains</label>
+                    <input type="text" class="form-control" id="edit-allowed-domains">
+                  </div>
+                  <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="edit-client-active">
+                    <label class="form-check-label" for="edit-client-active">Active</label>
+                  </div>
+                  <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="edit-auto-renewal">
+                    <label class="form-check-label" for="edit-auto-renewal">Auto Renewal</label>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label for="edit-primary-color" class="form-label">Primary Color</label>
+                    <input type="color" class="form-control form-control-color" id="edit-primary-color" value="#0084ff">
+                  </div>
+                  <div class="mb-3">
+                    <label for="edit-secondary-color" class="form-label">Secondary Color</label>
+                    <input type="color" class="form-control form-control-color" id="edit-secondary-color" value="#ffffff">
+                  </div>
+                  <div class="mb-3">
+                    <label for="edit-header-text" class="form-label">Header Text</label>
+                    <input type="text" class="form-control" id="edit-header-text" value="Chat with us">
+                  </div>
+                </div>
               </div>
             </form>
           </div>
@@ -227,7 +456,7 @@
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             <button type="button" class="btn btn-primary" id="save-client-changes">
               <span class="spinner-border spinner-border-sm d-none" id="save-spinner"></span>
-              Save changes
+              <i class="bi bi-check-circle"></i> Save Changes
             </button>
           </div>
         </div>
@@ -258,6 +487,7 @@
     let currentClientId = '';
     let currentToken = '';
     let editClientModal;
+    let leaseManagementModal;
     const toastEl = document.getElementById('toast-notification');
     let toast;
 
@@ -271,10 +501,59 @@
     document.addEventListener('DOMContentLoaded', function() {
       toast = new bootstrap.Toast(toastEl);
       editClientModal = new bootstrap.Modal(document.getElementById('editClientModal'));
+      leaseManagementModal = new bootstrap.Modal(document.getElementById('leaseManagementModal'));
+      
+      // Load lease dashboard stats
+      loadLeaseStats();
       
       // Fetch clients on page load
       fetchClients(currentPage);
+      
+      // Set up filter event listeners
+      setupFilterListeners();
     });
+
+    // Setup filter event listeners
+    function setupFilterListeners() {
+      document.getElementById('lease-status-filter').addEventListener('change', function() {
+        currentPage = 1;
+        fetchClients(currentPage);
+      });
+      
+      document.getElementById('duration-filter').addEventListener('change', function() {
+        currentPage = 1;
+        fetchClients(currentPage);
+      });
+    }
+
+    // Load lease statistics
+    async function loadLeaseStats() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/clients/lease-dashboard`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Server responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Update statistics cards
+        document.getElementById('active-leases-count').textContent = data.stats.leaseStatus.active;
+        document.getElementById('expiring-soon-count').textContent = data.stats.leaseStatus.expiring3Days;
+        document.getElementById('expired-count').textContent = data.stats.leaseStatus.expired;
+        document.getElementById('total-clients-count').textContent = data.stats.totalClients;
+        
+      } catch (error) {
+        console.error('Error loading lease stats:', error);
+        showNotification('Error', 'Failed to load lease statistics', 'error');
+      }
+    }
 
     // Show/hide loading spinners
     function toggleSpinner(elementId, show) {
@@ -291,7 +570,6 @@
       document.getElementById('toast-title').textContent = title;
       document.getElementById('toast-message').textContent = message;
       
-      // Set background color based on type
       toastEl.className = 'toast';
       if (type === 'success') {
         toastEl.classList.add('bg-success', 'text-white');
@@ -304,13 +582,58 @@
       toast.show();
     }
 
-    // Fetch clients with pagination
+    // Get lease status badge HTML
+    function getLeaseStatusBadge(leaseStatus) {
+      const statusMap = {
+        'active': { class: 'lease-active', text: 'Active' },
+        'expiring_soon': { class: 'lease-expiring', text: 'Expiring Soon' },
+        'expired': { class: 'lease-expired', text: 'Expired' },
+        'grace_period': { class: 'lease-grace', text: 'Grace Period' }
+      };
+      
+      const status = statusMap[leaseStatus.status] || { class: 'bg-secondary', text: 'Unknown' };
+      return `<span class="badge ${status.class} lease-status-badge">${status.text}</span>`;
+    }
+
+    // Get progress bar for days remaining
+    function getDaysProgressBar(leaseStatus) {
+      if (leaseStatus.status === 'expired') {
+        return `<div class="progress-days"><div class="progress-fill expired" style="width: 100%"></div></div>`;
+      }
+      
+      const totalDays = 30; // Assuming max 30 days for progress calculation
+      const remaining = Math.max(0, leaseStatus.daysRemaining);
+      const percentage = Math.min(100, (remaining / totalDays) * 100);
+      
+      let progressClass = 'active';
+      if (remaining <= 3) progressClass = 'expiring';
+      if (remaining <= 0) progressClass = 'expired';
+      
+      return `<div class="progress-days"><div class="progress-fill ${progressClass}" style="width: ${percentage}%"></div></div>`;
+    }
+
+    // Fetch clients with enhanced lease filtering
     async function fetchClients(page = 1, limit = pageSize) {
       try {
         document.getElementById('clients-loading').style.display = 'flex';
         toggleSpinner('refresh-spinner', true);
         
-        const response = await fetch(`${API_BASE_URL}/api/clients?page=${page}&limit=${limit}`, {
+        // Build query parameters
+        const params = new URLSearchParams({
+          page: page,
+          limit: limit,
+          sortBy: 'leaseConfig.expirationDate',
+          sortOrder: 'asc'
+        });
+        
+        // Add filters
+        const leaseStatusFilter = document.getElementById('lease-status-filter').value;
+        const durationFilter = document.getElementById('duration-filter').value;
+        
+        if (leaseStatusFilter) params.append('leaseStatus', leaseStatusFilter);
+        if (durationFilter) params.append('leaseDuration', durationFilter);
+        
+        const response = await fetch(`${API_BASE_URL}/api/clients?${params}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -332,6 +655,13 @@
         updateClientDropdown();
         updatePagination();
         
+        // Update stats if available
+        if (data.stats) {
+          document.getElementById('active-leases-count').textContent = data.stats.totalActive;
+          document.getElementById('expired-count').textContent = data.stats.totalExpired;
+          document.getElementById('total-clients-count').textContent = data.stats.totalClients;
+        }
+        
         showNotification('Success', 'Clients loaded successfully');
       } catch (error) {
         console.error('Error fetching clients:', error);
@@ -342,9 +672,371 @@
       }
     }
 
+    // Update clients list with lease information
+    function updateClientsList() {
+      const clientList = document.getElementById('client-list');
+      clientList.innerHTML = '';
+      
+      if (clients.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="9" class="text-center">No clients found. Create your first client to get started.</td>';
+        clientList.appendChild(row);
+        return;
+      }
+      
+      clients.forEach(client => {
+        const row = document.createElement('tr');
+        row.className = 'client-row';
+        
+        const leaseStatus = client.leaseStatus || { status: 'unknown', daysRemaining: 0 };
+        const leaseInfo = client.leaseInfo || {};
+        
+        row.innerHTML = `
+          <td class="copyable" onclick="copyToClipboard('${client.clientId}')" title="Click to copy">${client.clientId}</td>
+          <td>${client.name}</td>
+          <td>${client.email}</td>
+          <td>${getLeaseStatusBadge(leaseStatus)}</td>
+          <td>
+            <div>${leaseStatus.daysRemaining >= 0 ? leaseStatus.daysRemaining : 'Expired'}</div>
+            ${getDaysProgressBar(leaseStatus)}
+          </td>
+          <td>${leaseInfo.duration || 'N/A'} days</td>
+          <td>${leaseInfo.renewalCount || 0}</td>
+          <td>${client.requestCount || 0}</td>
+          <td>
+            <div class="lease-actions">
+              <button class="btn btn-sm btn-outline-primary edit-client" data-client-id="${client.clientId}" title="Edit Client">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-success manage-lease" data-client-id="${client.clientId}" title="Manage Lease">
+                <i class="bi bi-calendar-check"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-warning ${client.active ? 'deactivate-client' : 'activate-client'}" 
+                      data-client-id="${client.clientId}" title="${client.active ? 'Deactivate' : 'Activate'}">
+                <i class="bi bi-${client.active ? 'pause' : 'play'}-circle"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger delete-client" data-client-id="${client.clientId}" title="Delete Client">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        
+        clientList.appendChild(row);
+      });
+      
+      // Add event listeners
+      document.querySelectorAll('.edit-client').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const clientId = this.getAttribute('data-client-id');
+          openEditClientModal(clientId);
+        });
+      });
+      
+      document.querySelectorAll('.manage-lease').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const clientId = this.getAttribute('data-client-id');
+          openLeaseManagementModal(clientId);
+        });
+      });
+      
+      document.querySelectorAll('.activate-client, .deactivate-client').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const clientId = this.getAttribute('data-client-id');
+          const activate = this.classList.contains('activate-client');
+          toggleClientStatus(clientId, activate, this);
+        });
+      });
+      
+      document.querySelectorAll('.delete-client').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const clientId = this.getAttribute('data-client-id');
+          deleteClient(clientId, this);
+        });
+      });
+    }
+
+    // Open lease management modal
+    async function openLeaseManagementModal(clientId) {
+      const client = clients.find(c => c.clientId === clientId);
+      if (!client) return;
+      
+      const leaseStatus = client.leaseStatus || {};
+      const leaseInfo = client.leaseInfo || {};
+      
+      // Populate modal with client and lease information
+      document.getElementById('modal-client-name').textContent = client.name;
+      document.getElementById('modal-client-email').textContent = client.email;
+      document.getElementById('modal-client-id').textContent = client.clientId;
+      document.getElementById('modal-lease-status').innerHTML = getLeaseStatusBadge(leaseStatus);
+      document.getElementById('modal-days-remaining').textContent = leaseStatus.daysRemaining >= 0 ? leaseStatus.daysRemaining : 'Expired';
+      document.getElementById('modal-expiration-date').textContent = leaseInfo.expirationDate ? new Date(leaseInfo.expirationDate).toLocaleDateString() : 'N/A';
+      document.getElementById('modal-renewal-count').textContent = leaseInfo.renewalCount || 0;
+      
+      // Set form values
+      document.getElementById('renew-client-id').value = clientId;
+      document.getElementById('extend-client-id').value = clientId;
+      
+      // Load lease history
+      await loadLeaseHistory(clientId);
+      
+      leaseManagementModal.show();
+    }
+
+    // Load lease history for a client
+    async function loadLeaseHistory(clientId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/lease-history`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Server responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const historyContainer = document.getElementById('lease-history-container');
+        
+        if (data.leaseHistory && data.leaseHistory.length > 0) {
+          let historyHtml = '<div class="table-responsive"><table class="table table-sm">';
+          historyHtml += '<thead><tr><th>Start Date</th><th>End Date</th><th>Duration</th><th>Type</th><th>Renewed By</th></tr></thead><tbody>';
+          
+          data.leaseHistory.forEach(lease => {
+            historyHtml += `
+              <tr>
+                <td>${new Date(lease.startDate).toLocaleDateString()}</td>
+                <td>${new Date(lease.endDate).toLocaleDateString()}</td>
+                <td>${lease.duration} days</td>
+                <td><span class="badge bg-secondary">${lease.renewalType}</span></td>
+                <td>${lease.renewedBy || 'N/A'}</td>
+              </tr>
+            `;
+          });
+          
+          historyHtml += '</tbody></table></div>';
+          historyContainer.innerHTML = historyHtml;
+        } else {
+          historyContainer.innerHTML = '<div class="text-muted">No lease history available.</div>';
+        }
+      } catch (error) {
+        console.error('Error loading lease history:', error);
+        document.getElementById('lease-history-container').innerHTML = '<div class="text-danger">Failed to load lease history.</div>';
+      }
+    }
+
+    // Renew lease form handler
+    document.getElementById('renew-lease-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const clientId = document.getElementById('renew-client-id').value;
+      const duration = parseInt(document.getElementById('renew-duration').value);
+      
+      toggleSpinner('renew-spinner', true);
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/renew-lease`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          },
+          body: JSON.stringify({
+            duration: duration,
+            adminKey: ADMIN_KEY
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Refresh client list and close modal
+        await fetchClients(currentPage);
+        leaseManagementModal.hide();
+        
+        showNotification('Success', `Lease renewed successfully for ${duration} days`);
+        
+      } catch (error) {
+        console.error('Error renewing lease:', error);
+        showNotification('Error', 'Failed to renew lease: ' + error.message, 'error');
+      } finally {
+        toggleSpinner('renew-spinner', false);
+      }
+    });
+
+    // Extend lease form handler
+    document.getElementById('extend-lease-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const clientId = document.getElementById('extend-client-id').value;
+      const additionalDays = parseInt(document.getElementById('extend-days').value);
+      
+      toggleSpinner('extend-spinner', true);
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/clients/${clientId}/extend-lease`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          },
+          body: JSON.stringify({
+            additionalDays: additionalDays,
+            adminKey: ADMIN_KEY
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Refresh client list and close modal
+        await fetchClients(currentPage);
+        leaseManagementModal.hide();
+        
+        showNotification('Success', `Lease extended by ${additionalDays} days`);
+        
+      } catch (error) {
+        console.error('Error extending lease:', error);
+        showNotification('Error', 'Failed to extend lease: ' + error.message, 'error');
+      } finally {
+        toggleSpinner('extend-spinner', false);
+      }
+    });
+
+    // Create client form with lease duration
+    document.getElementById('create-client-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const name = document.getElementById('client-name').value.trim();
+      const email = document.getElementById('client-email').value.trim();
+      const leaseDuration = parseInt(document.getElementById('lease-duration').value);
+      const allowedDomainsStr = document.getElementById('allowed-domains').value.trim();
+      const widgetId = "6809b3a1523186af0b2c9933";
+      
+      let allowedDomains = [];
+      if (allowedDomainsStr) {
+        allowedDomains = allowedDomainsStr.split(',').map(domain => domain.trim());
+      }
+      
+      toggleSpinner('create-spinner', true);
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/clients`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          },
+          body: JSON.stringify({
+            name,
+            email,
+            allowedDomains,
+            widgetId,
+            leaseDuration,
+            adminKey: ADMIN_KEY
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Reset form
+        document.getElementById('create-client-form').reset();
+        document.getElementById('lease-duration').value = '30'; // Reset to default
+        
+        // Refresh client list and stats
+        await fetchClients(1);
+        await loadLeaseStats();
+        
+        showNotification('Success', `Client created successfully with ${leaseDuration}-day lease`);
+        
+      } catch (error) {
+        console.error('Error creating client:', error);
+        showNotification('Error', 'Failed to create client: ' + error.message, 'error');
+      } finally {
+        toggleSpinner('create-spinner', false);
+      }
+    });
+
+    // Expire clients button handler
+    document.getElementById('expire-clients-btn').addEventListener('click', async function() {
+      if (!confirm('Are you sure you want to expire all overdue clients? This action cannot be undone.')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/lease/expire-clients`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': ADMIN_KEY
+          },
+          body: JSON.stringify({
+            adminKey: ADMIN_KEY
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Refresh client list and stats
+        await fetchClients(currentPage);
+        await loadLeaseStats();
+        
+        showNotification('Success', `Expired ${data.results.expired} clients out of ${data.results.processed} processed`);
+        
+      } catch (error) {
+        console.error('Error expiring clients:', error);
+        showNotification('Error', 'Failed to expire clients: ' + error.message, 'error');
+      }
+    });
+
+    // Update client dropdown in the token generation form
+    function updateClientDropdown() {
+      const dropdown = document.getElementById('token-client-id');
+      dropdown.innerHTML = '<option value="" selected disabled>Select a client</option>';
+      
+      const activeClients = clients.filter(client => client.active && client.leaseStatus && client.leaseStatus.status !== 'expired');
+      
+      if (activeClients.length === 0) {
+        const option = document.createElement('option');
+        option.value = "";
+        option.textContent = "No active clients with valid leases";
+        option.disabled = true;
+        dropdown.appendChild(option);
+        return;
+      }
+      
+      activeClients.forEach(client => {
+        const option = document.createElement('option');
+        option.value = client.clientId;
+        const leaseInfo = client.leaseStatus ? ` (${client.leaseStatus.daysRemaining} days left)` : '';
+        option.textContent = `${client.name} (${client.clientId})${leaseInfo}`;
+        dropdown.appendChild(option);
+      });
+    }
+
     // Update pagination display and controls
     function updatePagination() {
-      // Update page info text
       const startIndex = (currentPage - 1) * pageSize + 1;
       const endIndex = Math.min(currentPage * pageSize, totalClients);
       
@@ -352,7 +1044,6 @@
       document.getElementById('end-index').textContent = endIndex;
       document.getElementById('total-clients').textContent = totalClients;
       
-      // Update pagination controls
       const paginationControls = document.getElementById('pagination-controls');
       paginationControls.innerHTML = '';
       
@@ -404,146 +1095,6 @@
       paginationControls.appendChild(nextLi);
     }
 
-    // Update clients list in the table
-    function updateClientsList() {
-      const clientList = document.getElementById('client-list');
-      clientList.innerHTML = '';
-      
-      if (clients.length === 0) {
-        const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="7" class="text-center">No clients found. Create your first client to get started.</td>';
-        clientList.appendChild(row);
-        return;
-      }
-      
-      clients.forEach(client => {
-        const row = document.createElement('tr');
-        row.className = 'client-row';
-        
-        const lastActive = client.lastRequestDate ? new Date(client.lastRequestDate).toLocaleString() : 'Never';
-        
-        row.innerHTML = `
-          <td class="copyable" onclick="copyToClipboard('${client.clientId}')" title="Click to copy">${client.clientId}</td>
-          <td>${client.name}</td>
-          <td>${client.email}</td>
-          <td><span class="badge ${client.active ? 'bg-success' : 'bg-danger'}">${client.active ? 'Active' : 'Inactive'}</span></td>
-          <td>${client.requestCount || 0}</td>
-          <td>${lastActive}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary edit-client" data-client-id="${client.clientId}">Edit</button>
-            <button class="btn btn-sm btn-outline-danger ${client.active ? 'deactivate-client' : 'activate-client'}" data-client-id="${client.clientId}">
-              ${client.active ? 'Deactivate' : 'Activate'}
-            </button>
-            <button class="btn btn-sm btn-outline-dark delete-client" data-client-id="${client.clientId}">Delete</button>
-          </td>
-        `;
-        
-        clientList.appendChild(row);
-      });
-      
-      // Add event listeners
-      document.querySelectorAll('.edit-client').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const clientId = this.getAttribute('data-client-id');
-          openEditClientModal(clientId);
-        });
-      });
-      
-      document.querySelectorAll('.activate-client, .deactivate-client').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const clientId = this.getAttribute('data-client-id');
-          const activate = this.classList.contains('activate-client');
-          toggleClientStatus(clientId, activate, this);
-        });
-      });
-      
-      // Add event listeners for delete buttons
-      document.querySelectorAll('.delete-client').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const clientId = this.getAttribute('data-client-id');
-          deleteClient(clientId, this);
-        });
-      });
-    }
-
-    // Update client dropdown in the token generation form
-    function updateClientDropdown() {
-      const dropdown = document.getElementById('token-client-id');
-      dropdown.innerHTML = '<option value="" selected disabled>Select a client</option>';
-      
-      const activeClients = clients.filter(client => client.active);
-      
-      if (activeClients.length === 0) {
-        const option = document.createElement('option');
-        option.value = "";
-        option.textContent = "No active clients";
-        option.disabled = true;
-        dropdown.appendChild(option);
-        return;
-      }
-      
-      activeClients.forEach(client => {
-        const option = document.createElement('option');
-        option.value = client.clientId;
-        option.textContent = `${client.name} (${client.clientId})`;
-        dropdown.appendChild(option);
-      });
-    }
-
-    // Create a new client
-    document.getElementById('create-client-form').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      
-      const name = document.getElementById('client-name').value.trim();
-      const email = document.getElementById('client-email').value.trim();
-      const allowedDomainsStr = document.getElementById('allowed-domains').value.trim();
-      const widgetId = "6809b3a1523186af0b2c9933"; // Fixed widget ID
-      
-      let allowedDomains = [];
-      if (allowedDomainsStr) {
-        allowedDomains = allowedDomainsStr.split(',').map(domain => domain.trim());
-      }
-      
-      toggleSpinner('create-spinner', true);
-      
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/clients`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': ADMIN_KEY
-          },
-          body: JSON.stringify({
-            name,
-            email,
-            allowedDomains,
-            widgetId,
-            adminKey: ADMIN_KEY
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Server responded with status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Reset form
-        document.getElementById('create-client-form').reset();
-        
-        // Refresh client list - go to first page when adding a new client
-        await fetchClients(1);
-        
-        showNotification('Success', 'Client created successfully');
-      } catch (error) {
-        console.error('Error creating client:', error);
-        showNotification('Error', 'Failed to create client: ' + error.message, 'error');
-      } finally {
-        toggleSpinner('create-spinner', false);
-      }
-    });
-
     // Generate token for client
     document.getElementById('generate-token-form').addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -575,7 +1126,6 @@
         
         const data = await response.json();
         
-        // Display token
         currentClientId = clientId;
         currentToken = data.token;
         
@@ -603,9 +1153,8 @@
         });
     });
 
-// Copy embed code to clipboard
+    // Copy embed code to clipboard
     document.getElementById('copy-embed-code').addEventListener('click', function() {
-      // FIXED: Always use full server URL for widget.js
       const serverUrl = API_BASE_URL || 'https://chatbott-5579.onrender.com';
       const embedCode = `<script src="${serverUrl}/widget.js"><\/script>
 <script>
@@ -634,8 +1183,8 @@
       document.getElementById('edit-client-name').value = client.name;
       document.getElementById('edit-allowed-domains').value = client.allowedDomains ? client.allowedDomains.join(', ') : '';
       document.getElementById('edit-client-active').checked = client.active;
+      document.getElementById('edit-auto-renewal').checked = client.leaseInfo?.autoRenewal || false;
       
-      // Set customization values
       const customization = client.chatbotConfig?.customization || {};
       document.getElementById('edit-primary-color').value = customization.primaryColor || '#0084ff';
       document.getElementById('edit-secondary-color').value = customization.secondaryColor || '#ffffff';
@@ -649,6 +1198,7 @@
       const clientId = document.getElementById('edit-client-id').value;
       const allowedDomainsStr = document.getElementById('edit-allowed-domains').value.trim();
       const active = document.getElementById('edit-client-active').checked;
+      const autoRenewal = document.getElementById('edit-auto-renewal').checked;
       
       let allowedDomains = [];
       if (allowedDomainsStr) {
@@ -674,6 +1224,7 @@
             active,
             allowedDomains,
             customization,
+            autoRenewal,
             adminKey: ADMIN_KEY
           })
         });
@@ -683,9 +1234,7 @@
           throw new Error(errorData.error || `Server responded with status: ${response.status}`);
         }
         
-        // Refresh client list - keep on the same page
         await fetchClients(currentPage);
-        
         editClientModal.hide();
         showNotification('Success', 'Client updated successfully');
       } catch (error) {
@@ -696,9 +1245,8 @@
       }
     });
 
-    // Toggle client status (activate/deactivate)
+    // Toggle client status
     async function toggleClientStatus(clientId, activate, buttonElement) {
-      // Disable the button to prevent multiple clicks
       if (buttonElement) {
         buttonElement.disabled = true;
       }
@@ -721,15 +1269,14 @@
           throw new Error(errorData.error || `Server responded with status: ${response.status}`);
         }
         
-        // Refresh client list - keep on the same page
         await fetchClients(currentPage);
+        await loadLeaseStats();
         
         showNotification('Success', `Client ${activate ? 'activated' : 'deactivated'} successfully`);
       } catch (error) {
         console.error('Error toggling client status:', error);
         showNotification('Error', 'Failed to update client status: ' + error.message, 'error');
       } finally {
-        // Re-enable the button
         if (buttonElement) {
           buttonElement.disabled = false;
         }
@@ -738,12 +1285,10 @@
     
     // Delete client function
     async function deleteClient(clientId, buttonElement) {
-      // Ask for confirmation
       if (!confirm(`Are you sure you want to permanently delete client ${clientId}? This action cannot be undone.`)) {
-        return; // User cancelled
+        return;
       }
       
-      // Disable the button to prevent multiple clicks
       if (buttonElement) {
         buttonElement.disabled = true;
       }
@@ -762,19 +1307,16 @@
           throw new Error(errorData.error || `Server responded with status: ${response.status}`);
         }
         
-        // After deleting, check if we should go to previous page
-        // (e.g., if we deleted the last item on the current page)
         const shouldGoBack = clients.length === 1 && currentPage > 1;
         
-        // Refresh client list - potentially go to previous page
         await fetchClients(shouldGoBack ? currentPage - 1 : currentPage);
+        await loadLeaseStats();
         
         showNotification('Success', 'Client deleted successfully');
       } catch (error) {
         console.error('Error deleting client:', error);
         showNotification('Error', 'Failed to delete client: ' + error.message, 'error');
       } finally {
-        // Re-enable the button
         if (buttonElement) {
           buttonElement.disabled = false;
         }
@@ -784,6 +1326,7 @@
     // Refresh clients list
     document.getElementById('refresh-clients').addEventListener('click', function() {
       fetchClients(currentPage);
+      loadLeaseStats();
     });
 
     // Helper function to copy text to clipboard
@@ -797,6 +1340,14 @@
           showNotification('Error', 'Failed to copy to clipboard', 'error');
         });
     };
+
+    // Auto-refresh lease stats every 5 minutes
+    setInterval(loadLeaseStats, 5 * 60 * 1000);
+    
+    // Auto-refresh client list every 2 minutes to catch lease status changes
+    setInterval(() => {
+      fetchClients(currentPage);
+    }, 2 * 60 * 1000);
   </script>
 </body>
 </html>
