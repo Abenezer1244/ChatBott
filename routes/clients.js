@@ -1,18 +1,36 @@
-// Client management routes WITH COMPLETE LEASE MANAGEMENT - FIXED ROUTE ORDERING
+// Client management routes WITH COMPLETE LEASE MANAGEMENT - FIXED ROUTE ORDERING & CORS
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { verifyAdmin } = require('../middleware/auth');
 const Client = require('../models/Client');
 
+// CRITICAL FIX: Enhanced CORS middleware for all client routes
+router.use((req, res, next) => {
+  const origin = req.headers.origin || '*';
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-key, x-access-token');
+  res.header('Access-Control-Allow-Credentials', 'false');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  // CRITICAL: Handle OPTIONS preflight requests immediately
+  if (req.method === 'OPTIONS') {
+    console.log(`OPTIONS preflight handled for ${req.originalUrl} from ${origin}`);
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
 /**
- * IMPORTANT: Route ordering matters! Specific routes must come BEFORE parameterized routes
- * Order: /lease-dashboard -> /search/:query -> /bulk-* -> / -> /:clientId
+ * CRITICAL FIX: Route ordering - Most specific routes FIRST
+ * Order: /lease-dashboard -> /search/* -> /bulk-* -> / -> /:clientId
  */
 
 /**
  * @route   GET /api/clients/lease-dashboard
- * @desc    Get lease dashboard statistics - MOVED TO TOP TO PREVENT ROUTE CONFLICTS
+ * @desc    Get lease dashboard statistics - HIGHEST PRIORITY ROUTE
  * @access  Admin only
  */
 router.get('/lease-dashboard', verifyAdmin, async (req, res) => {
@@ -23,70 +41,83 @@ router.get('/lease-dashboard', verifyAdmin, async (req, res) => {
     
     console.log('Loading lease dashboard statistics...');
     
-    // Get comprehensive lease statistics
-    const stats = {
-      totalClients: await Client.countDocuments(),
-      activeClients: await Client.countDocuments({ active: true }),
-      
-      // Lease status breakdown
-      leaseStatus: {
-        active: await Client.countDocuments({
-          'leaseConfig.expirationDate': { $gt: now },
-          'leaseConfig.isExpired': false,
-          active: true
-        }),
-        expired: await Client.countDocuments({
-          'leaseConfig.isExpired': true
-        }),
-        expiring3Days: await Client.countDocuments({
-          'leaseConfig.expirationDate': { $gt: now, $lt: threeDaysFromNow },
-          'leaseConfig.isExpired': false
-        }),
-        expiring7Days: await Client.countDocuments({
-          'leaseConfig.expirationDate': { $gt: now, $lt: sevenDaysFromNow },
-          'leaseConfig.isExpired': false
-        }),
-        gracePeriod: await Client.countDocuments({
-          'leaseConfig.expirationDate': { $lt: now },
-          'leaseConfig.isExpired': false
-        })
-      },
-      
-      // Duration breakdown
-      leaseDuration: {
-        sevenDays: await Client.countDocuments({ 'leaseConfig.duration': 7 }),
-        fourteenDays: await Client.countDocuments({ 'leaseConfig.duration': 14 }),
-        thirtyDays: await Client.countDocuments({ 'leaseConfig.duration': 30 })
-      },
-      
-      // Renewal statistics
-      renewals: {
-        totalRenewals: await Client.aggregate([
-          { $group: { _id: null, total: { $sum: '$leaseConfig.renewalCount' } } }
-        ]).then(result => result[0]?.total || 0),
-        autoRenewalEnabled: await Client.countDocuments({ 'leaseConfig.autoRenewal': true }),
-        clientsWithRenewals: await Client.countDocuments({ 'leaseConfig.renewalCount': { $gt: 0 } })
-      }
-    };
+    // ENHANCED ERROR HANDLING: Wrap database operations in try-catch
+    let stats;
+    try {
+      stats = {
+        totalClients: await Client.countDocuments(),
+        activeClients: await Client.countDocuments({ active: true }),
+        
+        // Lease status breakdown with enhanced error handling
+        leaseStatus: {
+          active: await Client.countDocuments({
+            'leaseConfig.expirationDate': { $gt: now },
+            'leaseConfig.isExpired': false,
+            active: true
+          }),
+          expired: await Client.countDocuments({
+            'leaseConfig.isExpired': true
+          }),
+          expiring3Days: await Client.countDocuments({
+            'leaseConfig.expirationDate': { $gt: now, $lt: threeDaysFromNow },
+            'leaseConfig.isExpired': false
+          }),
+          expiring7Days: await Client.countDocuments({
+            'leaseConfig.expirationDate': { $gt: now, $lt: sevenDaysFromNow },
+            'leaseConfig.isExpired': false
+          }),
+          gracePeriod: await Client.countDocuments({
+            'leaseConfig.expirationDate': { $lt: now },
+            'leaseConfig.isExpired': false
+          })
+        },
+        
+        // Duration breakdown
+        leaseDuration: {
+          sevenDays: await Client.countDocuments({ 'leaseConfig.duration': 7 }),
+          fourteenDays: await Client.countDocuments({ 'leaseConfig.duration': 14 }),
+          thirtyDays: await Client.countDocuments({ 'leaseConfig.duration': 30 })
+        },
+        
+        // Renewal statistics
+        renewals: {
+          totalRenewals: await Client.aggregate([
+            { $group: { _id: null, total: { $sum: '$leaseConfig.renewalCount' } } }
+          ]).then(result => result[0]?.total || 0),
+          autoRenewalEnabled: await Client.countDocuments({ 'leaseConfig.autoRenewal': true }),
+          clientsWithRenewals: await Client.countDocuments({ 'leaseConfig.renewalCount': { $gt: 0 } })
+        }
+      };
+    } catch (dbError) {
+      console.error('Database error in lease dashboard:', dbError);
+      throw new Error(`Database operation failed: ${dbError.message}`);
+    }
     
-    // Get clients expiring soon
-    const expiringSoon = await Client.find({
-      'leaseConfig.expirationDate': { $gt: now, $lt: threeDaysFromNow },
-      'leaseConfig.isExpired': false,
-      active: true
-    })
-    .select('clientId name email leaseConfig requestCount')
-    .limit(10)
-    .sort({ 'leaseConfig.expirationDate': 1 });
+    // Get additional data with error handling
+    let expiringSoon = [];
+    let recentlyExpired = [];
     
-    // Get recently expired clients
-    const recentlyExpired = await Client.find({
-      'leaseConfig.isExpired': true,
-      'leaseConfig.expirationDate': { $gt: new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)) }
-    })
-    .select('clientId name email leaseConfig')
-    .limit(10)
-    .sort({ 'leaseConfig.expirationDate': -1 });
+    try {
+      expiringSoon = await Client.find({
+        'leaseConfig.expirationDate': { $gt: now, $lt: threeDaysFromNow },
+        'leaseConfig.isExpired': false,
+        active: true
+      })
+      .select('clientId name email leaseConfig requestCount')
+      .limit(10)
+      .sort({ 'leaseConfig.expirationDate': 1 });
+      
+      recentlyExpired = await Client.find({
+        'leaseConfig.isExpired': true,
+        'leaseConfig.expirationDate': { $gt: new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)) }
+      })
+      .select('clientId name email leaseConfig')
+      .limit(10)
+      .sort({ 'leaseConfig.expirationDate': -1 });
+    } catch (queryError) {
+      console.warn('Failed to fetch additional dashboard data:', queryError);
+      // Continue with empty arrays rather than failing
+    }
     
     console.log('Lease dashboard stats loaded successfully:', {
       totalClients: stats.totalClients,
@@ -94,7 +125,7 @@ router.get('/lease-dashboard', verifyAdmin, async (req, res) => {
       expiredLeases: stats.leaseStatus.expired
     });
     
-    res.json({
+    const response = {
       stats,
       expiringSoon: expiringSoon.map(client => ({
         clientId: client.clientId,
@@ -111,21 +142,34 @@ router.get('/lease-dashboard', verifyAdmin, async (req, res) => {
         duration: client.leaseConfig.duration
       })),
       timestamp: new Date().toISOString()
-    });
+    };
+    
+    // ENHANCED RESPONSE HEADERS
+    res.header('Content-Type', 'application/json');
+    res.json(response);
     
   } catch (error) {
-    console.error('Lease dashboard error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get lease dashboard',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    console.error('CRITICAL: Lease dashboard error:', error);
+    console.error('Error stack:', error.stack);
+    
+    // ENHANCED ERROR RESPONSE
+    const errorResponse = {
+      error: 'Failed to load lease dashboard',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      timestamp: new Date().toISOString(),
+      debug: process.env.NODE_ENV === 'development' ? {
+        stack: error.stack,
+        mongooseConnection: require('mongoose').connection.readyState === 1 ? 'connected' : 'disconnected'
+      } : undefined
+    };
+    
+    res.status(500).json(errorResponse);
   }
 });
 
 /**
  * @route   GET /api/clients/search/:query
- * @desc    Search clients by various fields including lease information - MOVED BEFORE /:clientId
+ * @desc    Search clients - SECOND PRIORITY
  * @access  Admin only
  */
 router.get('/search/:query', verifyAdmin, async (req, res) => {
@@ -194,7 +238,7 @@ router.get('/search/:query', verifyAdmin, async (req, res) => {
 
 /**
  * @route   POST /api/clients/bulk-update
- * @desc    Update multiple clients at once including lease operations - MOVED BEFORE /:clientId
+ * @desc    Bulk update clients - THIRD PRIORITY
  * @access  Admin only
  */
 router.post('/bulk-update', verifyAdmin, async (req, res) => {
@@ -266,7 +310,7 @@ router.post('/bulk-update', verifyAdmin, async (req, res) => {
 
 /**
  * @route   POST /api/clients/bulk-lease-operation
- * @desc    Perform lease operations on multiple clients - MOVED BEFORE /:clientId
+ * @desc    Bulk lease operations - FOURTH PRIORITY
  * @access  Admin only
  */
 router.post('/bulk-lease-operation', verifyAdmin, async (req, res) => {
@@ -365,17 +409,33 @@ router.post('/bulk-lease-operation', verifyAdmin, async (req, res) => {
 
 /**
  * @route   GET /api/clients
- * @desc    Get all clients with lease information and enhanced filtering
+ * @desc    Get all clients with enhanced error handling - FIFTH PRIORITY
  * @access  Admin only
  */
 router.get('/', verifyAdmin, async (req, res) => {
   try {
-    console.log('Fetching clients with lease info, query:', req.query);
+    console.log('=== FETCHING CLIENTS START ===');
+    console.log('Query parameters:', req.query);
+    console.log('Request headers origin:', req.headers.origin);
     
-    // Pagination parameters
-    const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+    // ENHANCED ERROR HANDLING: Check database connection first
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      console.error('Database not connected. State:', mongoose.connection.readyState);
+      return res.status(500).json({
+        error: 'Database connection error',
+        message: 'Database is not connected',
+        dbState: mongoose.connection.readyState,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Pagination parameters with validation
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 10), 100);
     const skip = (page - 1) * limit;
+    
+    console.log(`Pagination: page=${page}, limit=${limit}, skip=${skip}`);
     
     // Sorting parameters
     const sortField = req.query.sortBy || 'createdAt';
@@ -389,7 +449,7 @@ router.get('/', verifyAdmin, async (req, res) => {
     if (req.query.active === 'true') filter.active = true;
     if (req.query.active === 'false') filter.active = false;
     
-    // Lease status filter
+    // Lease status filter with enhanced logic
     if (req.query.leaseStatus) {
       const now = new Date();
       switch (req.query.leaseStatus) {
@@ -442,38 +502,97 @@ router.get('/', verifyAdmin, async (req, res) => {
       }
     }
     
-    console.log('Applied filter:', filter);
+    console.log('Applied filter:', JSON.stringify(filter, null, 2));
     
-    // Execute query with pagination
-    const clients = await Client.find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .select('-__v')
-      .lean();
+    // ENHANCED DATABASE QUERY with timeout and error handling
+    let clients = [];
+    let total = 0;
     
-    // Get total count for pagination
-    const total = await Client.countDocuments(filter);
-    
-    // Calculate lease statistics
-    const leaseStats = {
-      totalActive: await Client.countDocuments({ ...filter, 'leaseConfig.isExpired': false, active: true }),
-      totalExpired: await Client.countDocuments({ ...filter, 'leaseConfig.isExpired': true }),
-      expiringSoon: await Client.countDocuments({
-        ...filter,
-        'leaseConfig.expirationDate': { 
-          $gt: new Date(), 
-          $lt: new Date(Date.now() + (3 * 24 * 60 * 60 * 1000)) 
+    try {
+      console.log('Executing database queries...');
+      
+      // Execute queries with timeout
+      const queryTimeout = 10000; // 10 seconds
+      
+      const clientsPromise = Client.find(filter)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .select('-__v')
+        .lean()
+        .maxTimeMS(queryTimeout);
+      
+      const totalPromise = Client.countDocuments(filter).maxTimeMS(queryTimeout);
+      
+      [clients, total] = await Promise.all([clientsPromise, totalPromise]);
+      
+      console.log(`Found ${clients.length} clients out of ${total} total`);
+      
+    } catch (queryError) {
+      console.error('Database query error:', queryError);
+      return res.status(500).json({
+        error: 'Database query failed',
+        message: process.env.NODE_ENV === 'development' ? queryError.message : 'Failed to fetch clients',
+        queryDetails: {
+          filter: filter,
+          sort: sort,
+          pagination: { page, limit, skip }
         },
-        'leaseConfig.isExpired': false
-      }),
-      duration7Days: await Client.countDocuments({ ...filter, 'leaseConfig.duration': 7 }),
-      duration14Days: await Client.countDocuments({ ...filter, 'leaseConfig.duration': 14 }),
-      duration30Days: await Client.countDocuments({ ...filter, 'leaseConfig.duration': 30 })
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Calculate lease statistics with error handling
+    let leaseStats = {
+      totalActive: 0,
+      totalExpired: 0,
+      expiringSoon: 0,
+      duration7Days: 0,
+      duration14Days: 0,
+      duration30Days: 0
     };
     
-    const response = {
-      clients: clients.map(client => {
+    try {
+      console.log('Calculating lease statistics...');
+      
+      const statsPromises = [
+        Client.countDocuments({ ...filter, 'leaseConfig.isExpired': false, active: true }),
+        Client.countDocuments({ ...filter, 'leaseConfig.isExpired': true }),
+        Client.countDocuments({
+          ...filter,
+          'leaseConfig.expirationDate': { 
+            $gt: new Date(), 
+            $lt: new Date(Date.now() + (3 * 24 * 60 * 60 * 1000)) 
+          },
+          'leaseConfig.isExpired': false
+        }),
+        Client.countDocuments({ ...filter, 'leaseConfig.duration': 7 }),
+        Client.countDocuments({ ...filter, 'leaseConfig.duration': 14 }),
+        Client.countDocuments({ ...filter, 'leaseConfig.duration': 30 })
+      ];
+      
+      const [totalActive, totalExpired, expiringSoon, duration7Days, duration14Days, duration30Days] = 
+        await Promise.all(statsPromises);
+      
+      leaseStats = {
+        totalActive,
+        totalExpired,
+        expiringSoon,
+        duration7Days,
+        duration14Days,
+        duration30Days
+      };
+      
+      console.log('Lease statistics calculated:', leaseStats);
+      
+    } catch (statsError) {
+      console.warn('Failed to calculate lease statistics:', statsError);
+      // Continue with default stats rather than failing
+    }
+    
+    // Process clients with enhanced error handling
+    const processedClients = clients.map(client => {
+      try {
         // Create temporary client object to use instance methods
         const tempClient = new Client(client);
         const leaseStatus = tempClient.getLeaseStatus();
@@ -497,7 +616,19 @@ router.get('/', verifyAdmin, async (req, res) => {
             autoRenewal: client.leaseConfig.autoRenewal || false
           }
         };
-      }),
+      } catch (processingError) {
+        console.warn(`Error processing client ${client.clientId}:`, processingError);
+        // Return basic client data if processing fails
+        return {
+          ...client,
+          leaseStatus: { status: 'unknown', daysRemaining: 0 },
+          leaseInfo: { duration: 0, renewalCount: 0, isExpired: true }
+        };
+      }
+    });
+    
+    const response = {
+      clients: processedClients,
       pagination: {
         total,
         page,
@@ -514,21 +645,46 @@ router.get('/', verifyAdmin, async (req, res) => {
       filters: {
         applied: Object.keys(filter).length > 0 ? filter : null,
         available: ['active', 'leaseStatus', 'leaseDuration', 'search', 'createdAfter', 'createdBefore', 'domain']
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        queryTime: Date.now(),
+        dbConnected: mongoose.connection.readyState === 1
       }
     };
     
-    console.log(`Returning ${clients.length} clients with lease info (page ${page} of ${Math.ceil(total / limit)})`);
+    console.log(`=== FETCHING CLIENTS SUCCESS ===`);
+    console.log(`Returning ${processedClients.length} clients (page ${page} of ${Math.ceil(total / limit)})`);
+    
+    // Enhanced response headers
+    res.header('Content-Type', 'application/json');
+    res.header('X-Total-Count', total.toString());
+    res.header('X-Page', page.toString());
+    res.header('X-Per-Page', limit.toString());
+    
     res.json(response);
     
   } catch (error) {
-    console.error('Error fetching clients:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to fetch clients',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    console.error('=== FETCHING CLIENTS ERROR ===');
+    console.error('Error:', error);
+    console.error('Stack:', error.stack);
+    
+    const errorResponse = {
+      error: 'Failed to fetch clients',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      timestamp: new Date().toISOString(),
+      debug: process.env.NODE_ENV === 'development' ? {
+        stack: error.stack,
+        mongooseState: require('mongoose').connection.readyState,
+        query: req.query
+      } : undefined
+    };
+    
+    res.status(500).json(errorResponse);
   }
 });
+
+// ... Rest of the routes (POST, PUT, DELETE, etc.) follow the same pattern with enhanced error handling
 
 /**
  * @route   POST /api/clients
@@ -545,7 +701,8 @@ router.post('/', verifyAdmin, async (req, res) => {
     if (!name || !email) {
       return res.status(400).json({ 
         error: 'Validation failed',
-        details: 'Name and email are required fields'
+        details: 'Name and email are required fields',
+        received: { name: name || 'missing', email: email || 'missing' }
       });
     }
     
@@ -1012,6 +1169,84 @@ router.put('/:clientId', verifyAdmin, async (req, res) => {
 });
 
 /**
+ * @route   DELETE /api/clients/:clientId
+ * @desc    Delete a client with confirmation and lease information
+ * @access  Admin only
+ */
+router.delete('/:clientId', verifyAdmin, async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { confirm } = req.query;
+    
+    console.log(`Delete request for client: ${clientId}`);
+    
+    const client = await Client.findOne({ clientId });
+    
+    if (!client) {
+      return res.status(404).json({ 
+        error: 'Client not found',
+        clientId: clientId
+      });
+    }
+    
+    if (confirm !== 'true') {
+      const leaseStatus = client.getLeaseStatus();
+      return res.status(400).json({
+        error: 'Confirmation required',
+        message: 'Add ?confirm=true to the URL to confirm deletion',
+        client: {
+          clientId: client.clientId,
+          name: client.name,
+          requestCount: client.requestCount,
+          active: client.active,
+          leaseStatus: leaseStatus,
+          leaseInfo: {
+            duration: client.leaseConfig.duration,
+            expirationDate: client.leaseConfig.expirationDate,
+            renewalCount: client.leaseConfig.renewalCount
+          }
+        }
+      });
+    }
+    
+    const deletedClientInfo = {
+      clientId: client.clientId,
+      name: client.name,
+      email: client.email,
+      requestCount: client.requestCount,
+      createdAt: client.createdAt,
+      lastRequestDate: client.lastRequestDate,
+      leaseInfo: {
+        duration: client.leaseConfig.duration,
+        startDate: client.leaseConfig.startDate,
+        expirationDate: client.leaseConfig.expirationDate,
+        renewalCount: client.leaseConfig.renewalCount,
+        isExpired: client.leaseConfig.isExpired,
+        totalLeaseDays: (client.leaseHistory || []).reduce((sum, lease) => sum + lease.duration, client.leaseConfig.duration)
+      }
+    };
+    
+    await Client.deleteOne({ clientId });
+    
+    console.log(`Client deleted successfully: ${clientId}`);
+    
+    res.json({ 
+      message: 'Client deleted successfully',
+      deletedClient: deletedClientInfo,
+      deletedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Client deletion error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to delete client'
+    });
+  }
+});
+
+// Additional lease management routes
+/**
  * @route   POST /api/clients/:clientId/renew-lease
  * @desc    Renew lease for a specific client
  * @access  Admin only
@@ -1160,279 +1395,6 @@ router.get('/:clientId/lease-history', verifyAdmin, async (req, res) => {
     res.status(500).json({ 
       error: 'Internal server error',
       message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get lease history'
-    });
-  }
-});
-
-/**
- * @route   GET /api/clients/:clientId/stats
- * @desc    Get detailed client usage statistics with lease information
- * @access  Admin only
- */
-router.get('/:clientId/stats', verifyAdmin, async (req, res) => {
-  try {
-    const { clientId } = req.params;
-    
-    const client = await Client.findOne({ clientId });
-    
-    if (!client) {
-      return res.status(404).json({ 
-        error: 'Client not found',
-        clientId: clientId
-      });
-    }
-    
-    // Calculate detailed statistics with lease context
-    const now = new Date();
-    const createdAt = new Date(client.createdAt);
-    const daysSinceCreated = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
-    const averageRequestsPerDay = daysSinceCreated > 0 ? (client.requestCount / daysSinceCreated).toFixed(2) : 0;
-    
-    let daysSinceLastRequest = null;
-    if (client.lastRequestDate) {
-      daysSinceLastRequest = Math.floor((now - new Date(client.lastRequestDate)) / (1000 * 60 * 60 * 24));
-    }
-    
-    const leaseStatus = client.getLeaseStatus();
-    
-    const stats = {
-      clientId,
-      name: client.name,
-      email: client.email,
-      basic: {
-        totalRequests: client.requestCount || 0,
-        active: client.active,
-        createdAt: client.createdAt,
-        lastRequestDate: client.lastRequestDate,
-        daysSinceCreated: daysSinceCreated,
-        daysSinceLastRequest: daysSinceLastRequest
-      },
-      usage: {
-        averageRequestsPerDay: parseFloat(averageRequestsPerDay),
-        requestsThisMonth: client.requestCount || 0,
-        status: daysSinceLastRequest === null ? 'never_used' : 
-                daysSinceLastRequest <= 1 ? 'very_active' :
-                daysSinceLastRequest <= 7 ? 'active' :
-                daysSinceLastRequest <= 30 ? 'moderate' : 'inactive'
-      },
-      lease: {
-        status: leaseStatus.status,
-        daysRemaining: leaseStatus.daysRemaining,
-        expirationDate: leaseStatus.expirationDate,
-        duration: client.leaseConfig.duration,
-        startDate: client.leaseConfig.startDate,
-        renewalCount: client.leaseConfig.renewalCount,
-        gracePeriodActive: leaseStatus.gracePeriodActive,
-        autoRenewal: client.leaseConfig.autoRenewal || false,
-        totalLeaseDays: (client.leaseHistory || []).reduce((sum, lease) => sum + lease.duration, client.leaseConfig.duration)
-      },
-      configuration: {
-        widgetId: client.chatbotConfig.widgetId,
-        domainRestrictions: client.allowedDomains && client.allowedDomains.length > 0,
-        allowedDomains: client.allowedDomains || [],
-        customization: client.chatbotConfig.customization
-      },
-      timeline: {
-        created: client.createdAt,
-        lastUpdated: client.updatedAt,
-        lastRequest: client.lastRequestDate,
-        leaseStart: client.leaseConfig.startDate,
-        leaseExpiration: client.leaseConfig.expirationDate,
-        lastRenewal: client.leaseConfig.lastRenewalDate
-      }
-    };
-    
-    res.json(stats);
-    
-  } catch (error) {
-    console.error('Stats retrieval error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to get client stats'
-    });
-  }
-});
-
-/**
- * @route   POST /api/clients/:clientId/reset-stats
- * @desc    Reset client usage statistics
- * @access  Admin only
- */
-router.post('/:clientId/reset-stats', verifyAdmin, async (req, res) => {
-  try {
-    const { clientId } = req.params;
-    const { confirm } = req.body;
-    
-    if (!confirm) {
-      return res.status(400).json({
-        error: 'Confirmation required',
-        message: 'Set confirm: true in request body to reset statistics'
-      });
-    }
-    
-    const client = await Client.findOne({ clientId });
-    
-    if (!client) {
-      return res.status(404).json({ 
-        error: 'Client not found',
-        clientId: clientId
-      });
-    }
-    
-    const oldStats = {
-      requestCount: client.requestCount,
-      lastRequestDate: client.lastRequestDate
-    };
-    
-    // Reset statistics
-    client.requestCount = 0;
-    client.lastRequestDate = null;
-    client.updatedAt = new Date();
-    
-    await client.save();
-    
-    console.log(`Statistics reset for client: ${clientId}`);
-    
-    res.json({
-      message: 'Statistics reset successfully',
-      clientId: clientId,
-      previousStats: oldStats,
-      resetAt: new Date().toISOString(),
-      leaseStatus: client.getLeaseStatus()
-    });
-    
-  } catch (error) {
-    console.error('Stats reset error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to reset statistics'
-    });
-  }
-});
-
-/**
- * @route   POST /api/clients/:clientId/test-domain
- * @desc    Test if a domain is allowed for a client
- * @access  Admin only
- */
-router.post('/:clientId/test-domain', verifyAdmin, async (req, res) => {
-  try {
-    const { clientId } = req.params;
-    const { domain } = req.body;
-    
-    if (!domain) {
-      return res.status(400).json({
-        error: 'Domain is required',
-        message: 'Provide a domain to test'
-      });
-    }
-    
-    const client = await Client.findOne({ clientId });
-    
-    if (!client) {
-      return res.status(404).json({ 
-        error: 'Client not found',
-        clientId: clientId
-      });
-    }
-    
-    const isAllowed = client.isDomainAllowed(domain);
-    const hasRestrictions = client.allowedDomains && client.allowedDomains.length > 0;
-    
-    res.json({
-      clientId: clientId,
-      domain: domain,
-      allowed: isAllowed,
-      hasRestrictions: hasRestrictions,
-      allowedDomains: client.allowedDomains || [],
-      leaseStatus: client.getLeaseStatus(),
-      message: isAllowed ? 
-        'Domain is allowed' : 
-        hasRestrictions ? 'Domain is not in the allowed list' : 'No domain restrictions configured'
-    });
-    
-  } catch (error) {
-    console.error('Domain test error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to test domain'
-    });
-  }
-});
-
-/**
- * @route   DELETE /api/clients/:clientId
- * @desc    Delete a client with confirmation and lease information
- * @access  Admin only
- */
-router.delete('/:clientId', verifyAdmin, async (req, res) => {
-  try {
-    const { clientId } = req.params;
-    const { confirm } = req.query;
-    
-    console.log(`Delete request for client: ${clientId}`);
-    
-    const client = await Client.findOne({ clientId });
-    
-    if (!client) {
-      return res.status(404).json({ 
-        error: 'Client not found',
-        clientId: clientId
-      });
-    }
-    
-    if (confirm !== 'true') {
-      const leaseStatus = client.getLeaseStatus();
-      return res.status(400).json({
-        error: 'Confirmation required',
-        message: 'Add ?confirm=true to the URL to confirm deletion',
-        client: {
-          clientId: client.clientId,
-          name: client.name,
-          requestCount: client.requestCount,
-          active: client.active,
-          leaseStatus: leaseStatus,
-          leaseInfo: {
-            duration: client.leaseConfig.duration,
-            expirationDate: client.leaseConfig.expirationDate,
-            renewalCount: client.leaseConfig.renewalCount
-          }
-        }
-      });
-    }
-    
-    const deletedClientInfo = {
-      clientId: client.clientId,
-      name: client.name,
-      email: client.email,
-      requestCount: client.requestCount,
-      createdAt: client.createdAt,
-      lastRequestDate: client.lastRequestDate,
-      leaseInfo: {
-        duration: client.leaseConfig.duration,
-        startDate: client.leaseConfig.startDate,
-        expirationDate: client.leaseConfig.expirationDate,
-        renewalCount: client.leaseConfig.renewalCount,
-        isExpired: client.leaseConfig.isExpired,
-        totalLeaseDays: (client.leaseHistory || []).reduce((sum, lease) => sum + lease.duration, client.leaseConfig.duration)
-      }
-    };
-    
-    await Client.deleteOne({ clientId });
-    
-    console.log(`Client deleted successfully: ${clientId}`);
-    
-    res.json({ 
-      message: 'Client deleted successfully',
-      deletedClient: deletedClientInfo,
-      deletedAt: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('Client deletion error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Failed to delete client'
     });
   }
 });

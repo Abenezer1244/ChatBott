@@ -1051,45 +1051,241 @@
       });
     }
 
-    // Load lease statistics
-    async function loadLeaseStats() {
-      try {
-        console.log('Loading lease dashboard statistics...');
-        const response = await fetch(`${API_BASE_URL}/api/clients/lease-dashboard`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': ADMIN_KEY
-          }
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Dashboard API response:', response.status, errorText);
-          throw new Error(`Server responded with status: ${response.status} - ${errorText}`);
-        }
-        
-         
-        const data = await response.json();
-        console.log('Dashboard data loaded:', data);
-        
-        // Update statistics cards
-        document.getElementById('active-leases-count').textContent = data.stats.leaseStatus.active || 0;
-        document.getElementById('expiring-soon-count').textContent = data.stats.leaseStatus.expiring3Days || 0;
-        document.getElementById('expired-count').textContent = data.stats.leaseStatus.expired || 0;
-        document.getElementById('total-clients-count').textContent = data.stats.totalClients || 0;
-        
-      } catch (error) {
-        console.error('Error loading lease stats:', error);
-        showNotification('Error', 'Failed to load lease statistics: ' + error.message, 'error');
-        
-        // Set default values on error
-        document.getElementById('active-leases-count').textContent = '0';
-        document.getElementById('expiring-soon-count').textContent = '0';
-        document.getElementById('expired-count').textContent = '0';
-        document.getElementById('total-clients-count').textContent = '0';
-      }
+
+
+// ENHANCED CONNECTION TEST FUNCTION
+async function testConnection() {
+  try {
+    console.log('Testing connection...');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    const response = await fetch(`${API_BASE_URL}/api/health`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Connection test successful:', data);
+      showNotification('Success', 'Connection test successful', 'success');
+      return true;
+    } else {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+    
+  } catch (error) {
+    console.error('Connection test failed:', error);
+    
+    let errorMessage = 'Connection test failed';
+    if (error.name === 'AbortError') {
+      errorMessage = 'Connection test timed out';
+    } else if (error.message.includes('Failed to fetch')) {
+      errorMessage = 'Network error - check your internet connection';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    showNotification('Error', errorMessage, 'error');
+    return false;
+  }
+}
+
+// ENHANCED INITIALIZATION FUNCTION
+async function initializeDashboard() {
+  try {
+    console.log('Initializing dashboard...');
+    
+    // Test connection first
+    const connectionOk = await testConnection();
+    
+    if (!connectionOk) {
+      console.warn('Connection test failed, but continuing with initialization...');
+    }
+    
+    // Load dashboard data in parallel
+    const promises = [
+      loadLeaseStats(),
+      fetchClients(currentPage)
+    ];
+    
+    await Promise.allSettled(promises);
+    
+    console.log('Dashboard initialization complete');
+    
+  } catch (error) {
+    console.error('Dashboard initialization error:', error);
+    showNotification('Error', 'Failed to initialize dashboard', 'error');
+  }
+}
+
+// ENHANCED ERROR RECOVERY FUNCTION
+function recoverFromError() {
+  console.log('Attempting error recovery...');
+  showNotification('Info', 'Attempting to recover from error...', 'info');
+  
+  // Reset state
+  clients = [];
+  totalClients = 0;
+  currentPage = 1;
+  totalPages = 1;
+  
+  // Clear any existing error states
+  const errorElements = document.querySelectorAll('.alert-danger');
+  errorElements.forEach(el => el.remove());
+  
+  // Reinitialize
+  setTimeout(() => {
+    initializeDashboard();
+  }, 1000);
+}
+
+// ENHANCED NETWORK STATUS MONITORING
+window.addEventListener('online', function() {
+  console.log('Network connection restored');
+  showNotification('Connected', 'Internet connection restored', 'success');
+  setTimeout(() => {
+    initializeDashboard();
+  }, 1000);
+});
+
+window.addEventListener('offline', function() {
+  console.log('Network connection lost');
+  showNotification('Offline', 'No internet connection', 'warning');
+});
+
+// Add retry functionality to the page
+function addRetryButton() {
+  const retryButton = document.createElement('button');
+  retryButton.className = 'btn btn-primary btn-sm';
+  retryButton.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Retry Loading';
+  retryButton.onclick = recoverFromError;
+  
+  const pageHeader = document.querySelector('.page-header');
+  if (pageHeader) {
+    pageHeader.appendChild(retryButton);
+  }
+}
+
+// ENHANCED ERROR NOTIFICATION WITH STACK TRACE (DEV ONLY)
+function showDetailedError(error, context = '') {
+  if (window.location.hostname === 'localhost' || window.location.hostname.includes('dev')) {
+    console.group(`Detailed Error: ${context}`);
+    console.error('Error object:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.groupEnd();
+  }
+}
+
+// Export functions for global access
+window.fetchClients = fetchClients;
+window.loadLeaseStats = loadLeaseStats;
+window.testConnection = testConnection;
+window.initializeDashboard = initializeDashboard;
+window.recoverFromError = recoverFromError;
+
+    // Load lease statistics
+
+
+// ENHANCED LOAD LEASE STATS FUNCTION
+async function loadLeaseStats() {
+  try {
+    console.log('=== LOADING LEASE STATS ===');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    const response = await fetch(`${API_BASE_URL}/api/clients/lease-dashboard`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'x-admin-key': ADMIN_KEY,
+        'Cache-Control': 'no-cache'
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    console.log('Lease stats response status:', response.status);
+    
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (parseError) {
+        const responseText = await response.text();
+        console.error('Failed to parse lease stats error response:', parseError);
+        console.error('Raw response:', responseText);
+        throw new Error(`HTTP ${response.status}: Failed to load dashboard`);
+      }
+      
+      console.error('Lease stats API error:', errorData);
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Lease stats loaded:', data);
+    
+    // Validate response structure
+    if (!data || !data.stats) {
+      throw new Error('Invalid dashboard response: missing stats');
+    }
+    
+    // Update statistics cards with error handling
+    const updateStat = (elementId, value, fallback = 0) => {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.textContent = value !== undefined ? value : fallback;
+      } else {
+        console.warn(`Element not found: ${elementId}`);
+      }
+    };
+    
+    updateStat('active-leases-count', data.stats.leaseStatus?.active);
+    updateStat('expiring-soon-count', data.stats.leaseStatus?.expiring3Days);
+    updateStat('expired-count', data.stats.leaseStatus?.expired);
+    updateStat('total-clients-count', data.stats.totalClients);
+    
+    console.log('=== LEASE STATS SUCCESS ===');
+    
+  } catch (error) {
+    console.error('=== LEASE STATS ERROR ===');
+    console.error('Error details:', error);
+    
+    let errorMessage = 'Failed to load dashboard statistics';
+    
+    if (error.name === 'AbortError') {
+      errorMessage = 'Dashboard request timed out';
+    } else if (error.message.includes('Failed to fetch')) {
+      errorMessage = 'Network error loading dashboard';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    showNotification('Warning', errorMessage, 'warning');
+    
+    // Set default values on error
+    const defaultStats = ['active-leases-count', 'expiring-soon-count', 'expired-count', 'total-clients-count'];
+    defaultStats.forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = '?';
+        element.style.color = '#dc3545'; // Red color to indicate error
+      }
+    });
+  }
+}
 
     // Show/hide loading spinners
     function toggleSpinner(elementId, show) {
@@ -1153,80 +1349,222 @@
     }
 
     // Fetch clients with enhanced lease filtering
-    async function fetchClients(page = 1, limit = pageSize) {
+// ENHANCED FETCH CLIENTS FUNCTION WITH COMPREHENSIVE ERROR HANDLING
+async function fetchClients(page = 1, limit = pageSize) {
+  try {
+    console.log('=== FETCH CLIENTS START ===');
+    console.log('Page:', page, 'Limit:', limit);
+    
+    document.getElementById('clients-loading').style.display = 'flex';
+    toggleSpinner('refresh-spinner', true);
+    
+    // Build query parameters with validation
+    const params = new URLSearchParams({
+      page: Math.max(1, page),
+      limit: Math.min(Math.max(1, limit), 100),
+      sortBy: 'leaseConfig.expirationDate',
+      sortOrder: 'asc'
+    });
+    
+    // Add filters with validation
+    const leaseStatusFilter = document.getElementById('lease-status-filter')?.value;
+    const durationFilter = document.getElementById('duration-filter')?.value;
+    
+    if (leaseStatusFilter) params.append('leaseStatus', leaseStatusFilter);
+    if (durationFilter) params.append('leaseDuration', durationFilter);
+    
+    console.log('Request URL:', `${API_BASE_URL}/api/clients?${params}`);
+    console.log('Admin Key Set:', !!ADMIN_KEY);
+    
+    // Enhanced fetch with timeout and comprehensive error handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 30000); // 30 second timeout
+    
+    const response = await fetch(`${API_BASE_URL}/api/clients?${params}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'x-admin-key': ADMIN_KEY,
+        'Cache-Control': 'no-cache'
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (!response.ok) {
+      let errorData;
       try {
-        document.getElementById('clients-loading').style.display = 'flex';
-        toggleSpinner('refresh-spinner', true);
+        errorData = await response.json();
+      } catch (parseError) {
+        const responseText = await response.text();
+        console.error('Failed to parse error response as JSON:', parseError);
+        console.error('Raw response:', responseText);
         
-        // Build query parameters
-        const params = new URLSearchParams({
-          page: page,
-          limit: limit,
-          sortBy: 'leaseConfig.expirationDate',
-          sortOrder: 'asc'
-        });
-        
-        // Add filters
-        const leaseStatusFilter = document.getElementById('lease-status-filter').value;
-        const durationFilter = document.getElementById('duration-filter').value;
-        
-        if (leaseStatusFilter) params.append('leaseStatus', leaseStatusFilter);
-        if (durationFilter) params.append('leaseDuration', durationFilter);
-        
-        console.log('Fetching clients with params:', params.toString());
-        
-        const response = await fetch(`${API_BASE_URL}/api/clients?${params}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': ADMIN_KEY
-          }
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Clients API response:', response.status, errorText);
-          throw new Error(`Server responded with status: ${response.status} - ${errorText}`);
-        }
-        
-        const data = await response.json();
-        console.log('Clients data loaded:', data);
-        
-        clients = data.clients || [];
-        totalClients = data.pagination.total || 0;
-        totalPages = data.pagination.pages || 1;
-        currentPage = data.pagination.page || 1;
-        
-        updateClientsList();
-        updateClientDropdown();
-        updatePagination();
-        
-        // Update client count badge
-        document.getElementById('client-count-badge').textContent = `${totalClients} clients`;
-        
-        // Update stats if available
-        if (data.stats) {
-          document.getElementById('active-leases-count').textContent = data.stats.totalActive || 0;
-          document.getElementById('expired-count').textContent = data.stats.totalExpired || 0;
-          document.getElementById('total-clients-count').textContent = data.stats.totalClients || 0;
-        }
-        
-        showNotification('Success', 'Clients loaded successfully');
-      } catch (error) {
-        console.error('Error fetching clients:', error);
-        showNotification('Error', 'Failed to load clients: ' + error.message, 'error');
-        
-        // Set empty state
-        clients = [];
-        totalClients = 0;
-        updateClientsList();
-        updateClientDropdown();
-        updatePagination();
-      } finally {
-        document.getElementById('clients-loading').style.display = 'none';
-        toggleSpinner('refresh-spinner', false);
+        throw new Error(`HTTP ${response.status}: ${response.statusText || 'Unknown error'}`);
+      }
+      
+      console.error('API Error Response:', errorData);
+      
+      // Handle specific error cases
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please check your admin key.');
+      } else if (response.status === 403) {
+        throw new Error('Access denied. You do not have permission to view clients.');
+      } else if (response.status === 500) {
+        throw new Error(errorData.message || 'Server error occurred while fetching clients.');
+      } else {
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
     }
+    
+    const data = await response.json();
+    console.log('Response data structure:', {
+      hasClients: !!data.clients,
+      clientsCount: data.clients?.length || 0,
+      hasPagination: !!data.pagination,
+      hasStats: !!data.stats
+    });
+    
+    // Validate response structure
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid response format: expected object');
+    }
+    
+    if (!Array.isArray(data.clients)) {
+      console.warn('Invalid clients data:', data.clients);
+      throw new Error('Invalid response format: clients must be an array');
+    }
+    
+    // Set global variables with fallbacks
+    clients = data.clients || [];
+    totalClients = data.pagination?.total || 0;
+    totalPages = data.pagination?.pages || 1;
+    currentPage = data.pagination?.page || 1;
+    
+    console.log('Data processed successfully:', {
+      clientsLoaded: clients.length,
+      totalClients,
+      currentPage,
+      totalPages
+    });
+    
+    // Update UI components
+    updateClientsList();
+    updateClientDropdown();
+    updatePagination();
+    
+    // Update client count badge
+    const countBadge = document.getElementById('client-count-badge');
+    if (countBadge) {
+      countBadge.textContent = `${totalClients} clients`;
+    }
+    
+    // Update stats if available
+    if (data.stats) {
+      const activeCountEl = document.getElementById('active-leases-count');
+      const expiredCountEl = document.getElementById('expired-count');
+      const totalCountEl = document.getElementById('total-clients-count');
+      
+      if (activeCountEl) activeCountEl.textContent = data.stats.totalActive || 0;
+      if (expiredCountEl) expiredCountEl.textContent = data.stats.totalExpired || 0;
+      if (totalCountEl) totalCountEl.textContent = data.stats.totalClients || 0;
+    }
+    
+    console.log('=== FETCH CLIENTS SUCCESS ===');
+    showNotification('Success', 'Clients loaded successfully');
+    
+  } catch (error) {
+    console.error('=== FETCH CLIENTS ERROR ===');
+    console.error('Error details:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Handle specific error types
+    let errorMessage = 'Failed to load clients';
+    
+    if (error.name === 'AbortError') {
+      errorMessage = 'Request timed out. Please check your connection and try again.';
+    } else if (error.message.includes('Failed to fetch')) {
+      errorMessage = 'Network error. Please check your internet connection.';
+    } else if (error.message.includes('Authentication failed')) {
+      errorMessage = 'Authentication failed. Please refresh the page and try again.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    showNotification('Error', errorMessage, 'error');
+    
+    // Set empty state with error information
+    clients = [];
+    totalClients = 0;
+    totalPages = 1;
+    currentPage = 1;
+    
+    // Update UI to show error state
+    updateClientsList();
+    updateClientDropdown();
+    updatePagination();
+    
+    // Show error details in client list
+    const clientList = document.getElementById('client-list');
+    const clientCards = document.getElementById('client-cards');
+    
+    if (clientList) {
+      clientList.innerHTML = `
+        <tr>
+          <td colspan="9" class="text-center py-4">
+            <div class="alert alert-danger">
+              <h5>Failed to Load Clients</h5>
+              <p>${errorMessage}</p>
+              <button class="btn btn-outline-danger btn-sm" onclick="fetchClients(1)">
+                <i class="bi bi-arrow-clockwise"></i> Retry
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+    
+    if (clientCards) {
+      clientCards.innerHTML = `
+        <div class="client-card text-center py-4">
+          <div class="alert alert-danger">
+            <h5>Failed to Load Clients</h5>
+            <p>${errorMessage}</p>
+            <button class="btn btn-outline-danger btn-sm" onclick="fetchClients(1)">
+              <i class="bi bi-arrow-clockwise"></i> Retry
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Update badges to show error state
+    const badges = ['active-leases-count', 'expired-count', 'total-clients-count', 'client-count-badge'];
+    badges.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.textContent = id === 'client-count-badge' ? 'Error' : '?';
+      }
+    });
+    
+  } finally {
+    // Always hide loading indicators
+    const loadingEl = document.getElementById('clients-loading');
+    if (loadingEl) {
+      loadingEl.style.display = 'none';
+    }
+    toggleSpinner('refresh-spinner', false);
+    
+    console.log('=== FETCH CLIENTS COMPLETE ===');
+  }
+}
 
     // Update clients list with lease information
     function updateClientsList() {
